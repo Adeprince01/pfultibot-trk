@@ -1,0 +1,52 @@
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.py$'
+exclude = '''
+/(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["src"]
+combine_as_imports = true
+include_trailing_comma = true
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.11"
+plugins = []
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telegram-crypto-tracker"
+version = "0.1.0"
+description = "Telegram Crypto Call Tracker"
+authors = [{name = "User", email = "user@example.com"}]
+requires-python = ">=3.8"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"] 

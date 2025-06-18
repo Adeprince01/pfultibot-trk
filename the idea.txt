@@ -1,0 +1,187 @@
+i trade shitcoins, now thre's a caller telegram bot that drops signals some do very welll some do well and some don't i want to dump the calls into an excel type of program could be excel itlsef could be a better alternative, i want to be able to track how many Xs the calls do and how the calls do averagely so i can figure out an edge to trade 
+
+
+so it'll be that teh bot/app/spreadsheet gets the data from telegram or i can update manually then either it gets callcualted on the spreedsheet automatically or the thing we are going to create calculates it and saves the ones that do well and overall average. something like quant trading for shitcoins
+
+how can i best solve this problem
+
+prosposed solution
+Use Telegram API + Python bot to read messages from the caller’s channel or group.
+
+Parse messages for:
+
+Token name
+
+Call time
+
+Entry price
+
+(Optional) Take profit / stop loss targets
+
+Tools:
+
+telethon or pyrogram for Telegram API
+
+Use regex to extract call details
+
+Google Sheets + Python
+
+Pull Telegram messages with telethon
+
+Price data with dexscreener API
+
+Save to Google Sheet via gspread
+
+Python + Telethon
+
+Script watches your Telegram channel for new messages.
+
+Parses each message into a Python dict:
+
+python
+Copy
+Edit
+{
+  "timestamp": "...",
+  "token": "...",
+  "entry_cap": 45_400,
+  "peak_cap": 68_600,
+  "x_gain": 1.51,
+  "vip_x": 2.0,
+  "time_to_peak_h": 0.23,
+}
+Storage
+
+Save to a lightweight database (SQLite) or directly push to Google Sheets via gspread.
+
+
+sample of how the calls are made 
+Pumpfun Ultimate Alert, [07/06/2025 14:17]
+🎉 1.5x(3.2x from VIP) | 💹From 47.2K ↗️ 72.9K within 5h:34m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:18]
+🚀 17.9x(33.5x from VIP) | 💹From 44.3K ↗️ 791.1K within 6h:45m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:19]
+🚀 19.7x(37.1x from VIP) | 💹From 44.3K ↗️ 874.7K within 6h:45m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:21]
+🎉 2.0x(4.2x from VIP) | 💹From 47.2K ↗️ 96.7K within 5h:38m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:23]
+imaginethisgoesup (testing) (https://solscan.io/token/HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump)
+HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump
+
+Cap: 63.2K | ⌛️ 17s | Search on 𝕏 (https://x.com/search?f=live&q=(testing%20OR%20HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump%20OR%20url:HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump)&src=typed_query)
+Vol: 0 | 🅑 NaN | 🅢 NaN 
+Bonding Curve:  0.00%
+Dev:✅ (sold)
+ ├Made: 1
+ └Dex Paid: ❌ | CTO: ❌
+ Buyers 
+ ├🐁Insiders: 9
+ └🌟KOLs: 0
+TH: 191 (total) | Top 10: 52.5% 
+ └20.7 (https://solscan.io/account/E2h5nVL8MiXzzLir4LNYBJktDvawysdsEwwZCfne9Pgz)|13.6 (https://solscan.io/account/EKvVUWJE8393AESjVbMXVG63TyCQyqwhvCn2qmbDkxB6)|2.8 (https://solscan.io/account/EkdbN4v1v88Z8LjxhXWgLc8m1iZUqxUMS6vzNvEdTJkU)|2.6 (https://solscan.io/account/HdfZUAkYTPE5Q2kZHbqtMTQjjRRGp3f3c3VmBb2XL8MD)|2.5 (https://solscan.io/account/D2vTaYM7EPnJdXoVGR8JGinzj4taXT7Rvp845W8j3MLM)|2.2 (https://solscan.io/account/DVgaB89XGKDBio8ATVNKkPnBwu8hDJUWEBme9wBmdP8Q)|2.2 (https://solscan.io/account/5fprK2GKVWvrLTH6QzfmsNnFx4XJSFHc9Da7DDMshqbK)|2.1 (https://solscan.io/account/C8jKNy79S8p6DdXFhXR5Dvx5vdRZadeu6j8eQioue3tv)|1.9 (https://solscan.io/account/EWT2y5gzk544M6mKDZMAYwK97BbmQrDzu1QA1rjKqcHE)|1.9 (https://solscan.io/account/H6QdWSvifz4jQBnXqZgHvdCahT5SRyfRaDFDw2BztFC)
+Top 10 in detail
+User    |MCap   |Buy   |Sell  |Left 
+1..9Pgz |-      |-     |-     |206.9M
+2..kxB6 |-      |-     |-     |135.8M
+3..TJkU |12.1K  |98.9M |71.1M |27.8M 
+4..L8MD |22.9K  |26.1M |-     |26.1M 
+5..3MLM |12.1K  |25.2M |-     |25.2M 
+6..dP8Q |26.7K  |22.4M |-     |22.4M 
+7..hqbK |27.3K  |22.2M |-     |22.2M 
+8..e3tv |13.8K  |20.8M |-     |20.8M 
+9..qcHE |23.6K  |50.5M |31.4M |19.1M 
+10.ztFC |28.0K  |42.6M |23.5M |19.1M 
+
+
+Early: 
+ ├Sniper: 2 buy 1.2% with 0.4 SOL
+ ├Bundle: 0 
+ ├Sum 🅑:34.2% | Sum 🅢: 33%
+ ├🟢🟢🔴🟢🟢🟡🟢🟢🟡🟡
+ ├🟢🟢🟢🟡🟡🟢🟢🟢🟢🟢
+ └🔴 Hold 1 | 🟡 Sold part 5 | 🟢 Sold 14
+
+📈 MevX (https://mevx.io/solana/HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump?ref=zHU2qV592Npo) • PF (https://pump.fun/HU7VW2F3YXTXe3tfV9yQ73qy1b5Yzp4MBAFLT8x7pump)
+Copyright ©️ Juggernautnn (https://t.me/Juggernautnn) | pf_ultimate (https://t.me/pfultimate)
+
+Pumpfun Ultimate Alert, [07/06/2025 14:23]
+Token has been bonded, achieved within 14m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:23]
+🎉 1.5x(2.0x from VIP) | 💹From 45.4K ↗️ 68.6K within 14m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:24]
+tabby the cat  (tabby ) (https://solscan.io/token/7CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump)
+7CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump
+
+Cap: 45.7K | ⌛️ 2m | Search on 𝕏 (https://x.com/search?f=live&q=(tabby%20%20OR%207CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump%20OR%20url:7CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump)&src=typed_query)
+Vol: 36.7K | 🅑 295 | 🅢 169 
+Bonding Curve:  93.92%
+Dev:❌ (3.43% left)
+ ├Made: 1
+ └Dex Paid: ❌ | CTO: ❌
+ └Web (https://tabbythecat.net/) | 𝕏 (https://x.com/tabbyonsol_?s=21)
+Buyers 
+ ├🐁Insiders: 2
+ └🌟KOLs: 2
+TH: 172 (total) | Top 10: 29.3% 
+ └3.6 (https://solscan.io/account/689PgJFtc6AJRvnCGNzhiHYfRjpbaxsAMvE2kLL819vW)|3.4 (https://solscan.io/account/4aA7PEguysyy5Ko9hUjVpQQTxRHu1tqmbY9JLzTU98sW)|3.3 (https://solscan.io/account/SanguS3aRwct6yeU1VHXh4SzarXUYBdeS3qVE2E8zy8)|3.1 (https://solscan.io/account/4Zxzki2xNnBvi2X8oxN65NGb33tvwti1V32yu6PnURnh)|3 (https://solscan.io/account/3mSLgQVo8q7kNXWEiBUgVnFeKAs7zk2okCFzH3pESN6U)|2.8 (https://solscan.io/account/suqh5sHtr8HyJ7q8scBimULPkPpA557prMG47xCHQfK)|2.7 (https://solscan.io/account/GJA1HEbxGnqBhBifH9uQauzXSB53to5rhDrzmKxhSU65)|2.6 (https://solscan.io/account/v2yNhm4KkC87MdBkvvYiMVP7UdSyNYLrfXrFte8A5a7)|2.5 (https://solscan.io/account/AUYM4uTNyNUDDsaoSaXE11ZGpoCGG6zgnqbSDbLXi4pA)|2.2 (https://solscan.io/account/9gSKRsXiEznN2eB9S7E1qDLdYRWm7GzYKziq3g4aYCpS)
+Top 10 in detail
+User    |MCap   |Buy   |Sell  |Left 
+1..19vW |8.4K   |35.7M |-     |35.7M 
+2..98sW |4.4K   |34.3M |-     |34.3M 
+3..8zy8 |6.2K   |32.7M |-     |32.7M 
+4..URnh |5.2K   |31.4M |-     |31.4M 
+5..SN6U |5.8K   |30.1M |-     |30.1M 
+6..HQfK |32.1K  |27.9M |-     |27.9M 
+7..SU65 |21.8K  |27.3M |-     |27.3M 
+8..A5a7 |28.4K  |26.3M |-     |26.3M 
+9..i4pA |5.5K   |24.7M |-     |24.7M 
+10.YCpS |14.0K  |22.4M |-     |22.4M 
+
+
+Early: 
+ ├Sniper: 5 buy 5.1% with 1.6 SOL
+ ├Bundle: 0 
+ ├Sum 🅑:26.3% | Sum 🅢: 13%
+ ├🟢🟢🟢🟢🟢🔴🔴🔴🔴🔴
+ ├🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+ └🔴 Hold 5 | 🟡 Sold part 0 | 🟢 Sold 15
+
+📈 MevX (https://mevx.io/solana/7CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump?ref=zHU2qV592Npo) • PF (https://pump.fun/7CbcQGm7N3xhQ2i3NW8mzhbSE9LKvFdt2s6vUFgDpump)
+Copyright ©️ Juggernautnn (https://t.me/Juggernautnn) | pf_ultimate (https://t.me/pfultimate)
+
+Pumpfun Ultimate Alert, [07/06/2025 14:25]
+🎉 2.0x(2.7x from VIP) | 💹From 45.4K ↗️ 92.2K within 16m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:29]
+Token has been bonded, achieved within 5m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:30]
+🎉 2.7x(3.6x from VIP) | 💹From 45.4K ↗️ 120.9K within 20m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:30]
+🎉 1.5x | 💹From 45.7K ↗️ 70.0K within 6m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:31]
+🌕 3.8x(5.1x from VIP) | 💹From 45.4K ↗️ 171.2K within 22m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:32]
+🔥 8.3x(16.1x from VIP) | 💹From 46.4K ↗️ 386.7K within 4d
+
+Pumpfun Ultimate Alert, [07/06/2025 14:49]
+🌙 22.6x(42.3x from VIP) | 💹From 44.3K ↗️ 999.5K within 7h:15m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:50]
+🌙 24.9x(46.7x from VIP) | 💹From 44.3K ↗️ 1.1M within 7h:16m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:55]
+Token has been bonded, achieved within 42m
+
+Pumpfun Ultimate Alert, [07/06/2025 14:55]
+🎉 1.6x(2.6x from VIP) | 💹From 45.7K ↗️ 71.0K within 42m
+its is an example of the call data, how they are made are updated

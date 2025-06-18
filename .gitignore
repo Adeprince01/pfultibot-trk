@@ -1,0 +1,332 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Cursor
+.cursor/
+.cursorrules
+
+# Telegram session files
+*.session
+*.session-journal
+
+# Google Sheets credentials
+credentials.json
+token.json
+service-account-*.json
+
+# API keys and secrets
+.env.local
+.env.production
+.env.staging
+secrets/
+config/secrets/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+message_collection.log
+crypto_monitor.log
+crypto_monitor_enhanced.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+message_analysis.db
+test_crypto_calls.db
+crypto_calls_production.db
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Excel files (if used for storage)
+*.xlsx
+*.xls
+exports/*.xlsx
+exports/*.xls
+exports/*.csv
+
+# Backup files
+*.bak
+*.backup
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Local development files
+local/
+scratch/
+playground/
+
+# AI/ML model files
+*.pkl
+*.pickle
+*.model
+
+# Project-specific files
+# Windows batch files (may contain sensitive paths)
+*.bat
+
+# Test files that might be created during development
+test_*.py.bak
+test_*.db.bak
+*_test.py
+
+# Temporary analysis files
+analysis_*.py
+debug_*.py
+scratch_*.py
+
+# Data files that shouldn't be committed
+data/
+exports/
+raw_data/
+collected_data/
+
+# Session files (already covered above but being explicit)
+pf_session.session*
+test_session.session*
+*.session-journal
+
+# Coverage reports (already covered but being explicit)
+.coverage
+.coverage.*
+htmlcov/
+
+# Cache directories
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+
+# Large data files
+# Message collection databases (can get very large)
+message_analysis.db
+collected_messages.db
+backup_*.db
+
+# Large export files
+exports/full_*.xlsx
+exports/complete_*.csv
+exports/backup_*
+
+# Development notes and personal files
+for_me.txt
+notes.txt
+todo.txt
+personal_*.md
+*.csv
+*.json.gz
+
+# Documentation that shouldn't be public
+INTERNAL_NOTES.md
+PRIVATE_*.md
+TODO_PRIVATE.md
+
+# Project documentation (keep only README.md public)
+*.md
+!README.md
+
+# Notebook files (might contain sensitive data or large outputs)
+notebooks/
+*.ipynb
+
+# Temporary analysis files
+analysis_*.py
+debug_*.py
+scratch_*.py
+
+# Data files that shouldn't be committed
+data/
+exports/
+raw_data/
+collected_data/
+
+# Session files (already covered above but being explicit)
+pf_session.session*
+test_session.session*
+*.session-journal
+
+# Coverage reports (already covered but being explicit)
+.coverage
+.coverage.*
+htmlcov/
+
+# Cache directories
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+
+# Large data files
+# Message collection databases (can get very large)
+message_analysis.db
+collected_messages.db
+backup_*.db
+
+# Large export files
+exports/full_*.xlsx
+exports/complete_*.csv
+exports/backup_*
+
+# Development notes and personal files
+for_me.txt
+notes.txt
+todo.txt
+personal_*.md
+*.csv
+*.json.gz
+
+# Documentation that shouldn't be public
+INTERNAL_NOTES.md
+PRIVATE_*.md
+TODO_PRIVATE.md 
