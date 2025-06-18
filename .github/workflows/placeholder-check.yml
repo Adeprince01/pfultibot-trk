@@ -1,0 +1,70 @@
+name: Guard Placeholder Tokens
+
+on:
+  push:
+    paths:
+      - '**/*.md'
+      - '**/*.py'
+      - '**/*.yml'
+      - '**/*.yaml'
+  pull_request:
+    paths:
+      - '**/*.md'
+      - '**/*.py' 
+      - '**/*.yml'
+      - '**/*.yaml'
+
+jobs:
+  placeholder-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for placeholder tokens
+        run: |
+          echo "🔍 Scanning for common placeholder tokens..."
+          
+          # Common placeholder patterns to catch
+          FOUND_ISSUES=0
+          
+          # Check for URL placeholders
+          if grep -r "https://github\.com/your-org" --exclude-dir=.git --exclude-dir=.venv --exclude-dir=venv . 2>/dev/null; then
+            echo "❌ Found placeholder GitHub URLs"
+            FOUND_ISSUES=1
+          fi
+          
+          # Check for org placeholders  
+          if grep -r "YOUR-ORG\|your-org" --exclude-dir=.git --exclude-dir=.venv --exclude-dir=venv --exclude="placeholder-check.yml" . 2>/dev/null; then
+            echo "❌ Found organization placeholders"
+            FOUND_ISSUES=1
+          fi
+          
+          # Check for API key placeholders
+          if grep -r "YOUR_API_KEY\|your-api-key\|<API_KEY>" --exclude-dir=.git --exclude-dir=.venv --exclude-dir=venv . 2>/dev/null; then
+            echo "❌ Found API key placeholders" 
+            FOUND_ISSUES=1
+          fi
+          
+          # Check for email placeholders
+          if grep -r "your-email@example\.com\|<EMAIL>" --exclude-dir=.git --exclude-dir=.venv --exclude-dir=venv . 2>/dev/null; then
+            echo "❌ Found email placeholders"
+            FOUND_ISSUES=1
+          fi
+          
+          # Check for name placeholders
+          if grep -r "Your Name\|<YOUR_NAME>" --exclude-dir=.git --exclude-dir=.venv --exclude-dir=venv . 2>/dev/null; then
+            echo "❌ Found name placeholders"
+            FOUND_ISSUES=1
+          fi
+          
+          if [ $FOUND_ISSUES -eq 1 ]; then
+            echo ""
+            echo "🚫 Placeholder tokens detected! Please replace them before merging."
+            echo "💡 Common fixes:"
+            echo "   - Replace GitHub URLs with actual repository URL"
+            echo "   - Replace YOUR-ORG with actual organization name"
+            echo "   - Replace API key placeholders with proper environment variables"
+            echo "   - Replace email/name placeholders with actual values"
+            exit 1
+          else
+            echo "✅ No placeholder tokens found."
+          fi 
