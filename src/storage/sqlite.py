@@ -48,13 +48,37 @@ class SQLiteStorage:
                     peak_cap REAL,
                     x_gain REAL,
                     vip_x REAL,
+                    message_type TEXT,
+                    contract_address TEXT,
+                    time_to_peak TEXT,
                     timestamp TEXT,
                     message_id INTEGER,
                     channel_name TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    linked_crypto_call_id INTEGER,
+                    FOREIGN KEY(linked_crypto_call_id) REFERENCES crypto_calls(id)
                 )
             """
             )
+
+            # Add missing columns if they don't exist (for existing databases)
+            try:
+                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN message_type TEXT")
+                logger.info("Added message_type column to crypto_calls table")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            
+            try:
+                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN contract_address TEXT")
+                logger.info("Added contract_address column to crypto_calls table")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+                
+            try:
+                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN time_to_peak TEXT")
+                logger.info("Added time_to_peak column to crypto_calls table")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
             # Create raw_messages table for storing ALL messages before classification
             self._connection.execute(
@@ -66,6 +90,7 @@ class SQLiteStorage:
                     channel_name TEXT,
                     message_text TEXT,
                     message_date DATETIME,
+                    reply_to_message_id INTEGER,
                     is_classified BOOLEAN DEFAULT FALSE,
                     classification_result TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -114,16 +139,20 @@ class SQLiteStorage:
                 data.get("peak_cap"),
                 data.get("x_gain"),
                 data.get("vip_x"),
+                data.get("message_type"),
+                data.get("contract_address"),
+                data.get("time_to_peak"),
                 data.get("timestamp"),
                 data.get("message_id"),
                 data.get("channel_name"),
+                data.get("linked_crypto_call_id"),
             )
 
             self._connection.execute(
                 """
                 INSERT INTO crypto_calls 
-                (token_name, entry_cap, peak_cap, x_gain, vip_x, timestamp, message_id, channel_name)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (token_name, entry_cap, peak_cap, x_gain, vip_x, message_type, contract_address, time_to_peak, timestamp, message_id, channel_name, linked_crypto_call_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 values,
             )
@@ -155,7 +184,7 @@ class SQLiteStorage:
         try:
             query = """
                 SELECT token_name, entry_cap, peak_cap, x_gain, vip_x, 
-                       timestamp, message_id, channel_name
+                       message_type, contract_address, time_to_peak, timestamp, message_id, channel_name, linked_crypto_call_id
                 FROM crypto_calls 
                 ORDER BY created_at DESC
             """
@@ -175,9 +204,13 @@ class SQLiteStorage:
                     "peak_cap": row["peak_cap"],
                     "x_gain": row["x_gain"],
                     "vip_x": row["vip_x"],
+                    "message_type": row["message_type"],
+                    "contract_address": row["contract_address"],
+                    "time_to_peak": row["time_to_peak"],
                     "timestamp": row["timestamp"],
                     "message_id": row["message_id"],
                     "channel_name": row["channel_name"],
+                    "linked_crypto_call_id": row["linked_crypto_call_id"],
                 }
                 records.append(record)
 
@@ -221,8 +254,8 @@ class SQLiteStorage:
             self._connection.execute(
                 """
                 INSERT OR REPLACE INTO raw_messages 
-                (message_id, channel_id, channel_name, message_text, message_date)
-                VALUES (?, ?, ?, ?, ?)
+                (message_id, channel_id, channel_name, message_text, message_date, reply_to_message_id)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     message_data["message_id"],
@@ -230,6 +263,7 @@ class SQLiteStorage:
                     message_data["channel_name"],
                     message_data["message_text"],
                     message_data["message_date"],
+                    message_data.get("reply_to_message_id"),
                 ),
             )
             self._connection.commit()
@@ -265,7 +299,7 @@ class SQLiteStorage:
         try:
             query = """
                 SELECT message_id, channel_id, channel_name, message_text, 
-                       message_date, is_classified, classification_result, created_at
+                       message_date, reply_to_message_id, is_classified, classification_result, created_at
                 FROM raw_messages 
                 WHERE 1=1
             """
@@ -296,6 +330,7 @@ class SQLiteStorage:
                     "channel_name": row["channel_name"],
                     "message_text": row["message_text"],
                     "message_date": row["message_date"],
+                    "reply_to_message_id": row["reply_to_message_id"],
                     "is_classified": bool(row["is_classified"]),
                     "classification_result": row["classification_result"],
                     "created_at": row["created_at"],
@@ -307,4 +342,71 @@ class SQLiteStorage:
 
         except sqlite3.Error as e:
             logger.error(f"Failed to retrieve raw messages from SQLite: {e}")
+            raise
+
+    def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
+        """Get the crypto call ID for a given message ID.
+        
+        This method is used to link update messages to their original discovery calls
+        by looking up the database ID of a crypto call based on its message ID.
+        
+        Args:
+            message_id: The Telegram message ID to look up
+            
+        Returns:
+            The database ID of the crypto call, or None if not found
+            
+        Raises:
+            Exception: If database query fails
+        """
+        if not self._connection:
+            raise Exception("Database connection is not available")
+
+        try:
+            cursor = self._connection.execute(
+                "SELECT id FROM crypto_calls WHERE message_id = ? LIMIT 1",
+                (message_id,)
+            )
+            row = cursor.fetchone()
+            
+            if row:
+                crypto_call_id = row["id"]
+                logger.debug(f"Found crypto call ID {crypto_call_id} for message {message_id}")
+                return crypto_call_id
+            else:
+                logger.debug(f"No crypto call found for message {message_id}")
+                return None
+                
+        except sqlite3.Error as e:
+            logger.error(f"Failed to lookup crypto call by message ID {message_id}: {e}")
+            raise
+
+    def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, Any]]:
+        """Get a crypto call record by its primary key ID.
+
+        Args:
+            call_id: The primary key (id) of the crypto call.
+
+        Returns:
+            A dictionary containing the crypto call data, or None if not found.
+        """
+        if not self._connection:
+            raise Exception("Database connection is not available")
+
+        try:
+            cursor = self._connection.execute(
+                "SELECT * FROM crypto_calls WHERE id = ? LIMIT 1",
+                (call_id,)
+            )
+            row = cursor.fetchone()
+            
+            if row:
+                # Convert sqlite3.Row to a dictionary
+                return dict(row)
+            else:
+                logger.debug(f"No crypto call found for ID {call_id}")
+                return None
+                
+        except sqlite3.Error as e:
+            logger.error(f"Failed to lookup crypto call by ID {call_id}: {e}")
             raise

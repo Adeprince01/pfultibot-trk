@@ -80,6 +80,10 @@ class ExcelStorage:
             "peak_cap",
             "x_gain",
             "vip_x",
+            "message_type",
+            "contract_address",
+            "time_to_peak",
+            "linked_crypto_call_id",
             "timestamp",
             "message_id",
             "channel_name",
@@ -114,7 +118,8 @@ class ExcelStorage:
         Args:
             data: Dictionary containing crypto call data to store.
                  Expected keys: token_name, entry_cap, peak_cap, x_gain,
-                 vip_x, timestamp, message_id, channel_name
+                 vip_x, message_type, contract_address, time_to_peak,
+                 linked_crypto_call_id, timestamp, message_id, channel_name
 
         Raises:
             ValueError: If data is None or not a dictionary.
@@ -146,6 +151,10 @@ class ExcelStorage:
                 "peak_cap",
                 "x_gain",
                 "vip_x",
+                "message_type",
+                "contract_address",
+                "time_to_peak",
+                "linked_crypto_call_id",
                 "timestamp",
                 "message_id",
                 "channel_name",
@@ -159,7 +168,7 @@ class ExcelStorage:
             # Save the workbook
             self._save_workbook()
             logger.debug(
-                f"Inserted crypto call data for token: {data.get('token_name')}"
+                f"Inserted crypto call data for token: {data.get('token_name')} (type: {data.get('message_type')})"
             )
 
         except Exception as e:

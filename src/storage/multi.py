@@ -192,6 +192,68 @@ class MultiStorage:
         }
         return status
 
+    def store_raw_message(self, message_data: Dict[str, Any]) -> None:
+        """Store a raw message before classification (SQLite only).
+
+        Args:
+            message_data: Dictionary containing raw message data
+                Expected keys: message_id, channel_id, channel_name, 
+                message_text, message_date, reply_to_message_id
+
+        Raises:
+            Exception: If SQLite storage operation fails.
+        """
+        if message_data is None:
+            raise ValueError("Message data cannot be None")
+
+        if not isinstance(message_data, dict):
+            raise TypeError("Message data must be a dictionary")
+
+        if not message_data:
+            raise ValueError("Message data dictionary cannot be empty")
+
+        # Only store raw messages in SQLite (primary storage)
+        try:
+            if self.sqlite_storage:
+                self.sqlite_storage.store_raw_message(message_data)
+                logger.debug(f"Raw message {message_data.get('message_id')} stored to SQLite")
+            else:
+                logger.warning("Cannot store raw message: SQLite storage not available")
+        except Exception as e:
+            logger.error(f"Failed to store raw message: {e}")
+            raise
+
+    def get_raw_messages(
+        self, 
+        limit: Optional[int] = None, 
+        channel_id: Optional[int] = None,
+        unclassified_only: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Retrieve raw messages from primary storage (SQLite only).
+
+        Args:
+            limit: Maximum number of records to return
+            channel_id: Filter by specific channel ID
+            unclassified_only: Only return messages that haven't been classified
+
+        Returns:
+            List of dictionaries containing raw message data
+
+        Raises:
+            Exception: If retrieval operation fails.
+        """
+        try:
+            if self.sqlite_storage:
+                records = self.sqlite_storage.get_raw_messages(limit, channel_id, unclassified_only)
+                logger.debug(f"Retrieved {len(records)} raw messages from SQLite")
+                return records
+            else:
+                logger.warning("Cannot retrieve raw messages: SQLite storage not available")
+                return []
+        except Exception as e:
+            logger.error(f"Failed to retrieve raw messages: {e}")
+            raise
+
     def close(self) -> None:
         """Close all storage backends and cleanup resources.
 

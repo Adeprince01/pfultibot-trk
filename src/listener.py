@@ -310,39 +310,7 @@ class MessageHandler:
         
         return self._channel_stats.get(channel_id, {})
 
-    def _format_storage_data(
-        self, parsed_data: Dict[str, Any], message: Message
-    ) -> Dict[str, Any]:
-        """Format parsed data for storage with metadata.
-        
-        Args:
-            parsed_data: Dict from parser with crypto call data
-            message: Telegram message object
-            
-        Returns:
-            Dict formatted for storage with all required fields
-        """
-        channel_config = self.get_channel_config(message.chat_id)
-        channel_name = channel_config.channel_name if channel_config else "Unknown"
-        
-        return {
-            # Parser data
-            "token_name": parsed_data.get("token_name"),
-            "entry_cap": parsed_data.get("entry_cap"),
-            "peak_cap": parsed_data.get("peak_cap"),
-            "x_gain": parsed_data.get("x_gain"),
-            "vip_x": parsed_data.get("vip_x"),
-            # Enhanced parser data
-            "message_type": parsed_data.get("message_type"),
-            "contract_address": parsed_data.get("contract_address"),
-            "time_to_peak": parsed_data.get("time_to_peak"),
-            "linked_to_call_id": parsed_data.get("linked_to_call_id"),
-            # Message metadata
-            "message_id": message.id,
-            "channel_id": message.chat_id,
-            "channel_name": channel_name,
-            "timestamp": datetime.now().isoformat(),
-        }
+
 
     async def handle_message_with_retry(
         self, message: Message, max_retries: int = 3
@@ -410,23 +378,26 @@ class MessageHandler:
             channel_config = self.get_channel_config(message.chat_id)
             channel_name = channel_config.channel_name if channel_config else "Unknown"
 
-            # Store raw message data
-            raw_message_data = {
-                "message_id": message.id,
-                "channel_id": message.chat_id,
-                "channel_name": channel_name,
-                "message_text": message.text or "",
-                "message_date": message.date.isoformat() if message.date else datetime.now().isoformat(),
-            }
-
-            # Store raw message (this happens for ALL messages from monitored channels)
-            try:
-                if hasattr(self.storage, 'store_raw_message'):
+            logger.debug(f"Processing message {message.id} from channel {message.chat_id} ({channel_name})")
+            
+            # Store raw message for analysis BEFORE any filtering
+            if hasattr(self.storage, 'store_raw_message'):
+                raw_message_data = {
+                    "message_id": message.id,
+                    "channel_id": message.chat_id,
+                    "channel_name": getattr(message.chat, 'title', str(message.chat_id)),
+                    "message_text": message.text or "",
+                    "message_date": message.date,
+                    "reply_to_message_id": message.reply_to.reply_to_msg_id if message.reply_to else None,
+                }
+                try:
+                    # Use the dedicated method if storage supports it
                     self.storage.store_raw_message(raw_message_data)
-                    logger.debug(f"Stored raw message {message.id} from channel {message.chat_id}")
-            except Exception as e:
-                logger.error(f"Failed to store raw message {message.id}: {e}")
-                # Continue processing even if raw storage fails
+                    logger.info(f"✅ Raw message {message.id} stored: {(message.text or '')[:50]}...")
+                except Exception as e:
+                    logger.error(f"❌ Failed to store raw message {message.id}: {e}")
+            else:
+                logger.warning(f"❌ Storage does not support store_raw_message method!")
 
             # SECOND: Attempt classification and parsing
             crypto_call_detected = False
@@ -438,19 +409,60 @@ class MessageHandler:
                 # Parse the crypto call with enhanced error handling
                 try:
                     parsed_data = parse_crypto_call(message.text)
-                    if parsed_data is not None:
-                        # Format data for storage
-                        storage_data = self._format_storage_data(parsed_data, message)
+                    
+                    if parsed_data:
+                        # --- START: NEW LINKING AND INHERITANCE LOGIC ---
                         
-                        # Apply rate limiting for the channel
-                        await self.apply_rate_limit(message.chat_id)
+                        # Check if this is a reply to another message
+                        if message.reply_to and message.reply_to.reply_to_msg_id:
+                            # Use the storage layer to find the original call's database ID
+                            original_call_id = self.storage.get_crypto_call_by_message_id(
+                                message.reply_to.reply_to_msg_id
+                            )
+                            
+                            if original_call_id:
+                                # This is a confirmed update to an existing call.
+                                # Set the link in our parsed data.
+                                parsed_data['linked_crypto_call_id'] = original_call_id
+                                
+                                # Inherit token name if the update doesn't have one (e.g., "bonded" or "2.5x" messages)
+                                if not parsed_data.get('token_name'):
+                                    # We need to fetch the original call to get its name
+                                    original_call = self.storage.get_crypto_call_by_id(original_call_id)
+                                    if original_call and original_call.get('token_name'):
+                                        parsed_data['token_name'] = original_call['token_name']
+                                        logger.info(f"Inherited token '{parsed_data['token_name']}' for update message {message.id}")
+                                
+                                logger.info(f"✅ Linked update message {message.id} to discovery call ID {original_call_id}")
+                            else:
+                                logger.debug(f"Message {message.id} is a reply, but no matching discovery call found for message {message.reply_to.reply_to_msg_id}")
 
-                        # Store the crypto call
+                        # --- END: NEW LINKING AND INHERITANCE LOGIC ---
+
+                        # Format data for storage with all required metadata
+                        channel_config = self.get_channel_config(message.chat_id)
+                        channel_name = channel_config.channel_name if channel_config else "Unknown"
+                        
+                        storage_data = {
+                            "token_name": parsed_data.get("token_name"),
+                            "entry_cap": parsed_data.get("entry_cap"),
+                            "peak_cap": parsed_data.get("peak_cap"),
+                            "x_gain": parsed_data.get("x_gain"),
+                            "vip_x": parsed_data.get("vip_x"),
+                            "message_type": parsed_data.get("message_type"),
+                            "contract_address": parsed_data.get("contract_address"),
+                            "time_to_peak": parsed_data.get("time_to_peak"),
+                            "linked_crypto_call_id": parsed_data.get("linked_crypto_call_id"),
+                            "message_id": message.id,
+                            "channel_name": channel_name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        
+                        # Apply rate limiting and store the data
+                        await self.apply_rate_limit(message.chat_id)
                         self.storage.append_row(storage_data)
-                        logger.info(
-                            f"Successfully processed crypto call from message {message.id} "
-                            f"in channel {message.chat_id}"
-                        )
+                        
+                        logger.info(f"Successfully processed and stored crypto call from message {message.id}")
                         crypto_call_detected = True
                         
                 except Exception as e:
@@ -471,60 +483,57 @@ class MessageHandler:
 
 
 class TelegramListener:
-    """Telegram client wrapper for listening to messages.
-
-    This class manages the Telegram connection, authentication,
-    and event handling for incoming messages.
-    """
+    """Telegram client wrapper for listening to crypto call channels."""
 
     def __init__(self, settings: Any) -> None:
-        """Initialize the Telegram listener.
+        """Initialize Telegram listener with API settings.
 
         Args:
-            settings: Settings object containing API credentials
+            settings: Application settings with API ID, hash, and session name
         """
         self.api_id = settings.api_id
         self.api_hash = settings.api_hash
         self.session_name = settings.tg_session
-
         self.client = TelegramClient(self.session_name, self.api_id, self.api_hash)
-
-        self.is_connected = False
+        self.is_connected = self.client.is_connected()
         self.message_handler: Optional[MessageHandler] = None
-        self._event_handler: Optional[Any] = None
+        self.active_channels: List[int] = []
 
         logger.info(f"TelegramListener initialized with session: {self.session_name}")
 
     async def connect(self) -> bool:
-        """Connect to Telegram with enhanced error handling.
+        """Connect to Telegram and authenticate if necessary.
 
         Returns:
-            True if connection successful, False otherwise
+            True if connection is successful, False otherwise
+            
+        Raises:
+            Exception: If connection fails after retries
         """
+        if self.client.is_connected():
+            logger.info("Already connected to Telegram")
+            return True
+
         try:
-            logger.info("Connecting to Telegram...")
+            # Connect to client
             await self.client.connect()
-
+            
+            # Check if user is authorized
             if not await self.client.is_user_authorized():
-                logger.error("User not authorized. Please run authentication first.")
-                return False
-
+                logger.warning("User is not authorized. Manual authentication required.")
+                # Add authentication logic if needed (e.g., phone, password, 2FA)
+                # For now, we assume authentication is handled
+                
             self.is_connected = True
             logger.info("Successfully connected to Telegram")
             return True
 
-        except AuthKeyError as e:
-            logger.error(f"Authentication key error: {e}")
+        except AuthKeyError:
+            logger.error(f"Authentication key error: {AuthKeyError}")
             self.is_connected = False
             return False
-
-        except FloodWaitError as e:
-            logger.error(f"Flood wait error, need to wait {e.seconds} seconds: {e}")
-            self.is_connected = False
-            return False
-
         except Exception as e:
-            logger.error(f"Unexpected error connecting to Telegram: {e}")
+            logger.error(f"Failed to connect to Telegram: {e}")
             self.is_connected = False
             return False
 
@@ -545,7 +554,7 @@ class TelegramListener:
 
     def setup_message_handler(
         self, channel_configs: List[ChannelConfig], storage: StorageProtocol
-    ) -> None:
+    ) -> bool:
         """Setup message handler with channel configurations and storage.
 
         Args:
@@ -554,6 +563,30 @@ class TelegramListener:
         """
         self.message_handler = MessageHandler(channel_configs, storage)
         logger.info("Message handler configured")
+
+        try:
+            active_channels = [config.channel_id for config in channel_configs if config.is_active]
+            
+            @self.client.on(events.NewMessage(chats=active_channels))
+            async def event_handler(event: events.NewMessage.Event) -> None:
+                """Main event handler for new messages."""
+                message = event.message
+                logger.debug(f"Received message {message.id} from channel {message.chat_id}")
+                
+                # Add to pending messages for graceful shutdown
+                self.message_handler.pending_messages.append(message)
+                
+                # Handle message with retry logic
+                await self.message_handler.handle_message_with_retry(message)
+                
+                # Remove from pending after handling
+                self.message_handler.pending_messages.remove(message)
+        
+        except Exception as e:
+            logger.error(f"Error setting up message handler: {e}")
+            return False
+            
+        return True
 
     async def start_listening(self) -> bool:
         """Start listening for messages with enhanced error handling.
@@ -571,102 +604,53 @@ class TelegramListener:
 
         try:
             logger.info("Starting message listener...")
-
-            @self.client.on(events.NewMessage)
-            async def event_handler(event: events.NewMessage.Event) -> None:
-                """Handle incoming messages with error isolation."""
-                try:
-                    if self.message_handler:
-                        await self.message_handler.handle_message(event.message)
-                except Exception as e:
-                    logger.error(f"Error in event handler: {e}")
-                    # Continue processing other messages despite errors
-
-            self._event_handler = event_handler
+            # The event handler was already set up in setup_message_handler
             logger.info("Message listener started successfully")
             return True
-
+            
         except Exception as e:
             logger.error(f"Error starting message listener: {e}")
             return False
 
     async def stop_listening(self) -> None:
-        """Stop listening for messages."""
-        if self._event_handler:
-            try:
-                self.client.remove_event_handler(self._event_handler)
-                self._event_handler = None
-                logger.info("Message listener stopped")
-            except Exception as e:
-                logger.error(f"Error stopping message listener: {e}")
+        """Stop listening for new messages."""
+        if self.client and self.client.is_connected():
+            logger.info("Stopping message listeners...")
+            self.client.remove_event_handler(self.event_handler)
+            logger.info("Message listeners stopped")
 
     async def run_until_disconnected(self) -> None:
-        """Run the client until disconnected."""
-        if not self.is_connected:
-            logger.error("Cannot run: not connected to Telegram")
-            return
-
-        try:
-            logger.info("Running Telegram client...")
+        """Run client until it is disconnected."""
+        if self.client:
             await self.client.run_until_disconnected()
-        except Exception as e:
-            logger.error(f"Error running client: {e}")
-        finally:
-            await self.stop_listening()
 
     async def auto_reconnect(self, max_retries: int = 5) -> bool:
-        """Attempt to reconnect to Telegram with exponential backoff.
+        """Automatically reconnect to Telegram with exponential backoff.
 
         Args:
             max_retries: Maximum number of reconnection attempts
 
         Returns:
-            True if reconnection successful, False otherwise
+            True if reconnection is successful, False otherwise
         """
-        # First check if we're really connected and authorized
-        if self.is_connected:
+        logger.warning("Connection lost, attempting to reconnect...")
+        for i in range(max_retries):
             try:
-                if await self.client.is_user_authorized():
-                    logger.debug("Already connected and authorized")
-                    return True
-                else:
-                    logger.warning("Connected but not authorized, need to reconnect")
-                    self.is_connected = False
-            except Exception as e:
-                logger.warning(f"Connection check failed: {e}")
-                self.is_connected = False
+                delay = (2 ** i) + random.uniform(0, 1)
+                logger.info(f"Reconnection attempt {i + 1}/{max_retries} in {delay:.2f} seconds...")
+                await asyncio.sleep(delay)
 
-        logger.info(f"Starting auto-reconnect with max {max_retries} retries")
-        
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Reconnection attempt {attempt + 1}/{max_retries}")
-                
-                # Try to connect
-                await self.client.connect()
-                
-                if await self.client.is_user_authorized():
-                    self.is_connected = True
-                    logger.info("Auto-reconnect successful")
+                if await self.connect():
+                    logger.info("✅ Reconnection successful")
                     return True
-                else:
-                    logger.error("User not authorized during reconnect")
-                    return False
-                    
             except Exception as e:
-                logger.warning(f"Reconnection attempt {attempt + 1} failed: {e}")
-                
-                if attempt < max_retries - 1:
-                    # Exponential backoff: 1s, 2s, 4s, 8s, 16s
-                    delay = min(2 ** attempt, 16)
-                    logger.info(f"Waiting {delay}s before next attempt")
-                    await asyncio.sleep(delay)
-        
-        logger.error(f"Auto-reconnect failed after {max_retries} attempts")
+                logger.error(f"Reconnection attempt {i + 1} failed: {e}")
+
+        logger.error("Failed to reconnect after all attempts")
         return False
 
     async def handle_connection_error(self, error: Exception) -> Dict[str, Any]:
-        """Handle connection errors and determine retry strategy.
+        """Handle connection-related errors with structured responses.
 
         Args:
             error: The connection error that occurred
@@ -777,7 +761,7 @@ class TelegramListener:
                 return False
 
             # Start listening with retry
-            if not await self.start_listening():
+            if not await self.setup_message_handler(self.get_active_channels(), self.storage):
                 logger.error("Failed to start listening")
                 return False
 
@@ -786,7 +770,7 @@ class TelegramListener:
             # Run until disconnected with network failure recovery
             while True:
                 try:
-                    await self.client.run_until_disconnected()
+                    await self.run_until_disconnected()
                     break  # Normal exit
                 except Exception as e:
                     logger.error(f"Connection lost: {e}")

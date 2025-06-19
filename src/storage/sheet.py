@@ -65,7 +65,7 @@ class GoogleSheetsStorage:
             except gspread.WorksheetNotFound:
                 # Create worksheet if it doesn't exist
                 self._worksheet = sheet.add_worksheet(
-                    title=self.worksheet_name, rows=1000, cols=8
+                    title=self.worksheet_name, rows=1000, cols=12
                 )
                 self._create_headers()
 
@@ -86,6 +86,10 @@ class GoogleSheetsStorage:
             "peak_cap",
             "x_gain",
             "vip_x",
+            "message_type",
+            "contract_address",
+            "time_to_peak",
+            "linked_crypto_call_id",
             "timestamp",
             "message_id",
             "channel_name",
@@ -106,7 +110,8 @@ class GoogleSheetsStorage:
         Args:
             data: Dictionary containing crypto call data to store.
                  Expected keys: token_name, entry_cap, peak_cap, x_gain,
-                 vip_x, timestamp, message_id, channel_name
+                 vip_x, message_type, contract_address, time_to_peak,
+                 linked_crypto_call_id, timestamp, message_id, channel_name
 
         Raises:
             ValueError: If data is None or not a dictionary.
@@ -135,6 +140,10 @@ class GoogleSheetsStorage:
                 "peak_cap",
                 "x_gain",
                 "vip_x",
+                "message_type",
+                "contract_address",
+                "time_to_peak",
+                "linked_crypto_call_id",
                 "timestamp",
                 "message_id",
                 "channel_name",
@@ -145,7 +154,7 @@ class GoogleSheetsStorage:
             for key in columns:
                 value = data.get(key)
                 # Convert None to empty string for string fields
-                if value is None and key in ["token_name", "vip_x"]:
+                if value is None and key in ["token_name", "message_type", "contract_address", "time_to_peak"]:
                     row_data.append("")
                 else:
                     row_data.append(value)

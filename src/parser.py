@@ -163,40 +163,40 @@ def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, 
 
 
 def _parse_discovery_message(message: str) -> Optional[Dict[str, Union[str, float, None]]]:
-    """Parse discovery messages like 'Bean Cabal (CABAL) 944XTHEz... Cap: 43.7K'"""
+    """Parse discovery messages with the new markdown link format."""
     
-    # Pattern for discovery messages: [token name (symbol)] or token name (symbol)
-    # Followed by contract address and Cap: value
-    discovery_pattern = r"(?:\[(.+?)\s*\(([^)]+)\)\]|^(.+?)\s*\(([^)]+)\))\s*(?:https?://[^\s]*/)?\s*([A-Za-z0-9]{20,})\s*.*?[`]*Cap:?[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?"
+    # This new pattern correctly handles the `[Token Name](URL)` format and
+    # uses named capture groups for clarity and robustness.
+    # It looks for the token name, contract address, and market cap.
+    discovery_pattern = re.compile(
+        r"\[(?P<token_name>[^\]]+)\]"  # Group "token_name": Captures the full token name inside brackets.
+        r"\(https?://[^\)]+\)"          # Matches the (URL) part, which we don't need to capture.
+        r".*?"                          # Non-greedily matches characters between the URL and address.
+        r"`(?P<contract_address>[A-Za-z0-9]{30,})`"  # Group "contract_address": Captures the address from within backticks.
+        r".*?"                          # Non-greedily matches characters between the address and the cap.
+        r"Cap:`\s*\**(?P<cap_value>[0-9]+(?:\.[0-9]+)?)\s*(?P<cap_unit>[KMB]?)\**",  # Named groups for cap value and unit.
+        re.DOTALL | re.IGNORECASE
+    )
+
+    match = discovery_pattern.search(message)
     
-    discovery_match = re.search(discovery_pattern, message, re.IGNORECASE | re.DOTALL)
-    
-    if discovery_match:
-        # Extract token name and symbol
-        if discovery_match.group(1):  # Bracketed format
-            coin_name = discovery_match.group(1).strip()
-            token_symbol = discovery_match.group(2).strip().upper()
-        else:  # Non-bracketed format
-            coin_name = discovery_match.group(3).strip()
-            token_symbol = discovery_match.group(4).strip().upper()
-            
-        contract_address = discovery_match.group(5)
+    if match:
+        data = match.groupdict()
         
-        cap_value = float(discovery_match.group(6))
-        cap_unit = discovery_match.group(7)
-        current_cap = _convert_to_number(cap_value, cap_unit)
+        current_cap = _convert_to_number(float(data['cap_value']), data.get('cap_unit'))
         
-        # For discovery posts, entry_cap = peak_cap = current_cap, x_gain = 1.0
+        # For discovery posts, entry_cap and peak_cap are the same, and x_gain is 1.0.
         return {
-            "token_name": token_symbol,
+            "token_name": data['token_name'].strip(),
             "entry_cap": current_cap,
             "peak_cap": current_cap,
             "x_gain": 1.0,
             "vip_x": None,
             "message_type": "discovery",
-            "contract_address": contract_address
+            "contract_address": data['contract_address'].strip()
         }
-    
+        
+    logger.debug("Message did not match the primary discovery pattern.")
     return None
 
 
@@ -254,59 +254,64 @@ def _parse_fallback_format(message: str) -> Optional[Dict[str, Union[str, float,
 
 
 def link_messages_to_calls(messages: List[Dict]) -> List[Dict]:
-    """Link update messages to their original discovery calls.
-    
+    """Link update messages to their original discovery calls using reply_to_message_id.
+
+    This function iterates through a list of raw message data, creating a
+    map of message IDs to messages. It then links 'update' type messages
+    back to their corresponding 'discovery' calls if the update is a direct
+    reply to the discovery.
+
     Args:
-        messages: List of parsed message dictionaries, sorted by timestamp
-        
+        messages: A list of dictionaries, where each dictionary represents
+                  a raw message from the database, including 'message_id',
+                  'reply_to_message_id', and a 'parsed_data' dictionary
+                  containing the message_type.
+
     Returns:
-        List of messages with additional 'linked_to_call_id' field
+        The same list of messages, with an added 'linked_to_call_id'
+        field in the 'parsed_data' dictionary for linked updates.
     """
-    # Track active discovery calls (discovery messages that haven't been "completed")
-    active_calls = {}  # entry_cap -> discovery_message_info
-    
+    # Create a lookup map for message_id -> message
+    message_map = {msg['message_id']: msg for msg in messages}
+
     linked_messages = []
-    
     for msg in messages:
-        msg = msg.copy()  # Don't modify original
+        # Ensure we don't modify the original dict
+        updated_msg = msg.copy()
         
-        if msg.get('message_type') == 'discovery':
-            # New discovery call - add to active calls
-            entry_cap = msg.get('entry_cap')
-            if entry_cap:
-                active_calls[entry_cap] = {
-                    'id': msg.get('id'),
-                    'token_name': msg.get('token_name'),
-                    'contract_address': msg.get('contract_address'),
-                    'timestamp': msg.get('timestamp')
-                }
-            msg['linked_to_call_id'] = None  # Discovery calls don't link to anything
+        # We only need to link messages that are updates and are replies
+        reply_to_id = updated_msg.get("reply_to_message_id")
+        
+        parsed_data = updated_msg.get("parsed_data")
+        if not parsed_data:
+            linked_messages.append(updated_msg)
+            continue
             
-        elif msg.get('message_type') == 'update':
-            # Update message - try to link to discovery call
-            entry_cap = msg.get('entry_cap')
-            linked_call_id = None
+        # Ensure parsed_data is a mutable dictionary
+        parsed_data = parsed_data.copy()
+        updated_msg["parsed_data"] = parsed_data
+
+        if parsed_data.get("message_type") == "update" and reply_to_id:
+            # Find the original message this was a reply to
+            original_message = message_map.get(reply_to_id)
             
-            if entry_cap:
-                # Look for exact match first
-                if entry_cap in active_calls:
-                    linked_call_id = active_calls[entry_cap]['id']
+            if original_message:
+                original_parsed_data = original_message.get("parsed_data")
+                # Check if the original message was a discovery call
+                if original_parsed_data and original_parsed_data.get("message_type") == "discovery":
+                    # Link found! Use the database ID of the original message.
+                    parsed_data["linked_to_call_id"] = original_message.get("id")
                 else:
-                    # Look for close matches (within 5% tolerance for rounding differences)
-                    tolerance = 0.05
-                    for active_cap, call_info in active_calls.items():
-                        if abs(entry_cap - active_cap) / active_cap <= tolerance:
-                            linked_call_id = call_info['id']
-                            break
-            
-            msg['linked_to_call_id'] = linked_call_id
-            
+                    parsed_data["linked_to_call_id"] = None
+            else:
+                # Reply to a message not in the current batch
+                parsed_data["linked_to_call_id"] = None
         else:
-            # Other message types (bonding, etc.)
-            msg['linked_to_call_id'] = None
+            # Not an update message or not a reply
+            parsed_data["linked_to_call_id"] = None
             
-        linked_messages.append(msg)
-    
+        linked_messages.append(updated_msg)
+        
     return linked_messages
 
 
