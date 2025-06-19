@@ -119,6 +119,35 @@ class EnhancedProductionStorage:
         """Get stored records."""
         return self.storage.get_records(limit)
     
+    def store_raw_message(self, message_data: Dict[str, any]) -> None:
+        """Store raw message data before classification.
+        
+        Args:
+            message_data: Dictionary containing raw message data
+        """
+        try:
+            self.storage.store_raw_message(message_data)
+            logger.debug(f"Raw message {message_data.get('message_id')} stored successfully")
+        except Exception as e:
+            logger.error(f"Failed to store raw message {message_data.get('message_id')}: {e}")
+    
+    def get_raw_messages(self, limit: int = None, channel_id: int = None, unclassified_only: bool = False) -> List[Dict[str, any]]:
+        """Get raw messages from storage.
+        
+        Args:
+            limit: Maximum number of records to return
+            channel_id: Filter by specific channel ID
+            unclassified_only: Only return messages that haven't been classified
+            
+        Returns:
+            List of raw message dictionaries
+        """
+        try:
+            return self.storage.get_raw_messages(limit, channel_id, unclassified_only)
+        except Exception as e:
+            logger.error(f"Failed to retrieve raw messages: {e}")
+            return []
+    
     def get_storage_stats(self) -> Dict[str, any]:
         """Get storage statistics and backend status."""
         backend_status = self.storage.get_backend_status()

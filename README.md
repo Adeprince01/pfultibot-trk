@@ -19,16 +19,57 @@ A comprehensive Python application that monitors Telegram channels (specifically
 
 ## 🎯 Features
 
+- **🔗 Advanced Message Linking**: Automatically connects update messages to their original discovery calls using Telegram's reply system
 - **Real-time Monitoring**: Listens to @pfultimate for live crypto calls
 - **Smart Parsing**: Automatically extracts entry cap, peak cap, gains, and VIP status
-- **Multiple Formats**: Supports both traditional and @pfultimate message formats
+- **Multiple Formats**: Supports discovery, update, and bonding message formats
 - **Multi-Storage Support**: Save to SQLite, Excel, and Google Sheets simultaneously
-- **SQLite Storage**: Persistent storage with full analytics
+- **SQLite Storage**: Enhanced database with foreign key relationships for message linking
 - **Excel Export**: Automatic .xlsx file generation with formatted data
 - **Google Sheets Integration**: Real-time sync to Google Sheets for collaboration
 - **Production Ready**: Designed for 24/7 operation with logging and error handling
-- **Analytics Dashboard**: View gains, averages, VIP calls, and trends
+- **Analytics Dashboard**: View gains, averages, VIP calls, and trends with proper token lifecycle tracking
 - **Graceful Shutdown**: Safe stopping with data preservation
+
+## 🚀 **NEW: Advanced Message Linking System**
+
+### The Problem We Solved
+In crypto trading channels like @pfultimate, multiple tokens are tracked simultaneously. Update messages for different tokens appear mixed together in the timeline, making it impossible to know which update belongs to which token:
+
+```
+[Bean Cabal (CABAL)] Cap: 43.7K     ← Discovery call for CABAL
+[Sunset Token (SUNSET)] Cap: 45.2K  ← Discovery call for SUNSET  
+🎉 2.6x | From 43.7K → 115.0K       ← Which token is this update for?
+🔥 3.1x | From 45.2K → 140.3K       ← And this one?
+```
+
+### Our Solution: Reply-to-Message Linking
+We implemented **automatic message linking** using Telegram's native reply functionality:
+
+1. **Discovery Message** posted → Stored in database (ID: 1, message_id: 1001)
+2. **Update Message** replies to discovery → System detects `reply_to_message_id: 1001`
+3. **Automatic Linking** → Update stored with `linked_crypto_call_id: 1`
+4. **Result** → Perfect tracking of token lifecycle from discovery to all updates! 🎯
+
+### Database Schema
+```sql
+-- Raw messages with reply relationships
+raw_messages:
+  - message_id: 1001, reply_to_message_id: NULL (original discovery)
+  - message_id: 1002, reply_to_message_id: 1001 (update replies to discovery)
+
+-- Crypto calls with linking
+crypto_calls:
+  - id: 1, message_id: 1001, linked_crypto_call_id: NULL (discovery)
+  - id: 2, message_id: 1002, linked_crypto_call_id: 1 (update linked to discovery)
+```
+
+### Benefits
+- ✅ **100% Accurate Linking**: No more guessing which update belongs to which token
+- ✅ **Real-time Processing**: Links messages as they arrive from Telegram
+- ✅ **Complete Token Lifecycle**: Track from discovery through all performance updates
+- ✅ **Reliable Analytics**: Calculate true performance metrics per token
+- ✅ **Data Integrity**: Foreign key relationships ensure consistent data
 
 ## 🔧 Prerequisites
 
@@ -427,202 +468,3 @@ CREATE TABLE crypto_calls (
 
 **Traditional Format (Fallback):**
 ```
-🚀 $TOKEN Entry: 45K MC Peak: 180K MC (4x)
-⚡️ Entry 50k Peak 250k (5x VIP)
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues & Solutions
-
-#### ❌ "ModuleNotFoundError: No module named 'pydantic'"
-```bash
-pip install pydantic pydantic-settings
-```
-
-#### ❌ "User not authorized"
-```bash
-python authenticate_telegram.py
-```
-
-#### ❌ "No crypto calls detected"
-**Possible causes:**
-- Messages don't match parser format
-- Not subscribed to @pfultimate  
-- Channel permissions restricted
-
-**Debug steps:**
-```bash
-# Test parser with real message
-python test_real_message.py
-
-# Check if subscribed to channel
-python find_channels.py
-
-# View raw database info
-python view_database.py  # Option 2
-```
-
-#### ❌ "Connection failed"
-**Check:**
-- Internet connection stable
-- API credentials correct in `.env`
-- Not hitting Telegram rate limits
-
-#### ❌ Database locked/corrupted
-```bash
-# Backup current database
-copy crypto_calls_production.db crypto_calls_backup.db
-
-# The app will recreate the database on next run
-```
-
-### Debug Mode
-
-Enable detailed logging by editing `crypto_monitor.py`:
-```python
-logging.basicConfig(level=logging.DEBUG)  # Change from INFO to DEBUG
-```
-
-## 🛠️ Maintenance
-
-### Daily Checks
-- ✅ Monitor is running (`python crypto_monitor.py` active)
-- ✅ New calls being detected (check console output)
-- ✅ Database growing (`python view_database.py`)
-
-### Weekly Maintenance
-```bash
-# Check database size and performance
-python view_database.py
-
-# Review logs for errors
-# Check: logs/crypto_monitor.log
-
-# Backup database
-copy crypto_calls_production.db backups/crypto_calls_YYYY-MM-DD.db
-```
-
-### Log Management
-**Location**: `logs/crypto_monitor.log`
-
-**Rotation**: Manual (implement logrotate if needed)
-
-**Monitoring**: Check for ERROR entries
-```bash
-# Search for errors in logs (Windows)
-findstr "ERROR" logs\crypto_monitor.log
-
-# Linux/macOS
-grep "ERROR" logs/crypto_monitor.log
-```
-
-### Database Backup
-```bash
-# Manual backup
-copy crypto_calls_production.db backups/
-
-# Automated backup (add to scheduler)
-# Windows Task Scheduler or Linux cron
-```
-
-## ⚙️ Advanced Configuration
-
-### Adding More Channels
-
-Edit `crypto_monitor.py`:
-```python
-self.channels = [
-    ChannelConfig(
-        channel_id=-1002380293749,  # @pfultimate
-        channel_name="Pumpfun Ultimate Alert",
-        keywords=["🎉", "💹", "↗️", "x", "VIP"],
-        priority="high"
-    ),
-    ChannelConfig(
-        channel_id=-1001234567890,  # Additional channel
-        channel_name="Another Channel", 
-        keywords=["Entry", "Peak", "x"],
-        priority="medium"
-    )
-]
-```
-
-### Custom Parser Patterns
-
-Edit `src/parser.py` to add new message formats:
-```python
-# Add your custom pattern in parse_crypto_call()
-custom_pattern = r"your_regex_pattern_here"
-custom_match = re.search(custom_pattern, message)
-```
-
-### Export Options
-
-**Excel Export** (future feature):
-```python
-from src.storage.excel import ExcelStorage
-storage = ExcelStorage("crypto_calls.xlsx")
-```
-
-**Google Sheets** (future feature):
-```python
-from src.storage.sheet import GoogleSheetsStorage
-storage = GoogleSheetsStorage(sheet_id)
-```
-
-### Running as Windows Service
-
-For true 24/7 operation, consider:
-1. **NSSM** (Non-Sucking Service Manager)
-2. **Windows Task Scheduler** (startup trigger)
-3. **PM2** for Node.js-style process management
-
-## 🎯 Success Metrics
-
-**Monitor is working correctly when:**
-- ✅ Console shows "CRYPTO CALL DETECTED" messages
-- ✅ Database record count increases (`python view_database.py`)
-- ✅ Log file shows successful connections (`logs/crypto_monitor.log`)
-- ✅ No error messages in logs
-- ✅ Graceful shutdown preserves data
-
-## 📞 Support
-
-**Log Analysis**: Check `logs/crypto_monitor.log` for detailed error information
-
-**Database Issues**: Use `python view_database.py` option 2 for raw debugging
-
-**Parser Issues**: Test with `python test_real_message.py`
-
-**Connection Issues**: Re-run `python authenticate_telegram.py`
-
----
-
-## 🚀 Quick Commands Cheat Sheet
-
-```bash
-# Setup (one-time)
-python authenticate_telegram.py
-
-# Start monitoring
-python crypto_monitor.py              # Basic (SQLite only)
-python crypto_monitor_enhanced.py     # Enhanced (multi-storage)
-
-# View data
-python view_database.py
-
-# Test parser
-python test_integration.py
-
-# Find channels
-python find_channels.py
-
-# Test real format
-python test_real_message.py
-
-# Configuration
-copy env.example .env                  # Create configuration file
-```
-
-**🎉 You're ready to track crypto calls like a pro!** 
