@@ -154,7 +154,12 @@ class GoogleSheetsStorage:
             for key in columns:
                 value = data.get(key)
                 # Convert None to empty string for string fields
-                if value is None and key in ["token_name", "message_type", "contract_address", "time_to_peak"]:
+                if value is None and key in [
+                    "token_name",
+                    "message_type",
+                    "contract_address",
+                    "time_to_peak",
+                ]:
                     row_data.append("")
                 else:
                     row_data.append(value)

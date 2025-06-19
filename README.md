@@ -103,6 +103,9 @@ python authenticate_telegram.py
 
 You will be prompted to enter your phone number, a code sent to you on Telegram, and your 2FA password if you have one. This will create a `.session` file (named according to `TG_SESSION` in your `.env`) so you don't have to log in again.
 
+Option 3: Find Channel IDs (if needed, or if you want to add your own bot or channel)
+python find_channels.py
+
 ## 🛠️ Usage
 
 ### Running the Monitor
@@ -112,6 +115,8 @@ To start listening for new messages and processing them, run the `monitor.py` sc
 ```bash
 python monitor.py
 ```
+# Or use Windows startup script
+start_monitor.bat
 
 The monitor will connect to Telegram and log its activity to both the console and a log file in the `logs/` directory.
 
@@ -152,7 +157,6 @@ black .
 isort .
 ```
 
-For more detailed contribution guidelines, please consult the documents referenced in `AI_REFERENCE_INDEX.md`.
 
 ## 📁 Project Structure
 

@@ -24,17 +24,18 @@ Buyers
  ├🐁Insiders: 5
  └🌟KOLs: 2"""
 
+
 def main():
     print("🧪 Testing Parser with Coin Discovery Message")
     print("=" * 50)
-    
+
     print("📝 Original Message:")
     print(test_message[:200] + "..." if len(test_message) > 200 else test_message)
     print()
-    
+
     print("🔍 Parser Result:")
     result = parse_crypto_call(test_message)
-    
+
     if result:
         print("✅ SUCCESS! Parser detected the message:")
         print(f"   Token: {result['token_name']}")
@@ -46,8 +47,9 @@ def main():
     else:
         print("❌ FAILED! Parser could not detect the message.")
         print("   The parser needs further adjustment.")
-    
+
     print("=" * 50)
 
+
 if __name__ == "__main__":
-    main() 
+    main()

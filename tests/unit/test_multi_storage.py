@@ -62,9 +62,7 @@ class TestMultiStorage:
         Returns:
             Path to a temporary credentials file.
         """
-        temp_file = tempfile.NamedTemporaryFile(
-            delete=False, suffix=".json", mode="w"
-        )
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w")
         # Create minimal valid JSON credentials file
         temp_file.write('{"type": "service_account", "client_email": "test@test.com"}')
         temp_file.close()
@@ -122,9 +120,7 @@ class TestMultiStorage:
         sample_call_data: Dict[str, Any],
     ) -> None:
         """Test MultiStorage with SQLite and Excel backends."""
-        storage = MultiStorage(
-            sqlite_path=temp_sqlite_path, excel_path=temp_excel_path
-        )
+        storage = MultiStorage(sqlite_path=temp_sqlite_path, excel_path=temp_excel_path)
 
         # Verify both backends are active
         status = storage.get_backend_status()
@@ -193,9 +189,7 @@ class TestMultiStorage:
         # Mock Excel to fail during initialization
         mock_excel_class.side_effect = Exception("Excel init failed")
 
-        storage = MultiStorage(
-            sqlite_path=temp_sqlite_path, excel_path=temp_excel_path
-        )
+        storage = MultiStorage(sqlite_path=temp_sqlite_path, excel_path=temp_excel_path)
 
         # Verify SQLite works but Excel is disabled
         status = storage.get_backend_status()
@@ -317,9 +311,7 @@ class TestMultiStorage:
         self, temp_sqlite_path: Path, temp_excel_path: Path
     ) -> None:
         """Test MultiStorage properly closes all backends."""
-        storage = MultiStorage(
-            sqlite_path=temp_sqlite_path, excel_path=temp_excel_path
-        )
+        storage = MultiStorage(sqlite_path=temp_sqlite_path, excel_path=temp_excel_path)
 
         # Verify storage is functional
         assert storage.sqlite_storage is not None
@@ -330,4 +322,4 @@ class TestMultiStorage:
 
         # Note: We can't easily test that connections are closed without
         # accessing private attributes, but the close() method should
-        # not raise exceptions 
+        # not raise exceptions

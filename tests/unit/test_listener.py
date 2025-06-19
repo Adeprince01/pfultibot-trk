@@ -243,7 +243,7 @@ class TestMessageHandler:
             assert result is True
             mock_parse.assert_called_once_with(mock_message.text)
             mock_storage.append_row.assert_called_once()
-            
+
             # Verify the data passed to storage includes metadata
             call_args = mock_storage.append_row.call_args[0][0]
             assert "token_name" in call_args
@@ -386,6 +386,7 @@ class TestTelegramListenerWithMessageHandler:
         assert result is True
         # Verify client.on was called with NewMessage event class
         from telethon import events
+
         mock_client.on.assert_called_once()
         call_args = mock_client.on.call_args[0][0]
         assert call_args == events.NewMessage
@@ -397,7 +398,7 @@ class TestTelegramListenerWithMessageHandler:
         mock_client = AsyncMock()
         listener_with_handler.client = mock_client
         listener_with_handler.is_connected = True
-        
+
         # Set up an event handler to remove
         mock_handler = Mock()
         listener_with_handler._event_handler = mock_handler

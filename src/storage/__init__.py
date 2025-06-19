@@ -58,4 +58,10 @@ from .multi import MultiStorage
 from .sheet import GoogleSheetsStorage
 from .sqlite import SQLiteStorage
 
-__all__ = ["StorageProtocol", "SQLiteStorage", "ExcelStorage", "GoogleSheetsStorage", "MultiStorage"]
+__all__ = [
+    "StorageProtocol",
+    "SQLiteStorage",
+    "ExcelStorage",
+    "GoogleSheetsStorage",
+    "MultiStorage",
+]

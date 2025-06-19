@@ -2,8 +2,8 @@
 
 import logging
 import re
-from typing import Dict, Optional, Union, List, Tuple
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +67,12 @@ def parse_crypto_call(
         update_result = _parse_update_message(message)
         if update_result:
             return update_result
-        
+
         # Then check for discovery messages
         discovery_result = _parse_discovery_message(message)
         if discovery_result:
             return discovery_result
-            
+
         # Check for bonding messages
         if "bonded" in message.lower():
             return {
@@ -82,7 +82,7 @@ def parse_crypto_call(
                 "x_gain": None,
                 "vip_x": None,
                 "message_type": "bonding",
-                "contract_address": None
+                "contract_address": None,
             }
 
         # Fallback to original format: "Entry: 45K MC Peak: 180K MC (4x)"
@@ -99,26 +99,26 @@ def parse_crypto_call(
 
 def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, None]]]:
     """Parse price update messages like '🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m'"""
-    
+
     # Pattern for update messages with both regular and VIP multipliers
     # 🔥 5.4x(6.6x from VIP) | 💹From 43.6K ↗️ 234.1K within 5d
     vip_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?:\s|$)"
-    
+
     vip_match = re.search(vip_pattern, message, re.IGNORECASE | re.DOTALL)
     if vip_match:
         x_gain = float(vip_match.group(1))
         vip_x = float(vip_match.group(2))
-        
+
         entry_value = float(vip_match.group(3))
         entry_unit = vip_match.group(4)
         entry_cap = _convert_to_number(entry_value, entry_unit)
-        
+
         peak_value = float(vip_match.group(5))
         peak_unit = vip_match.group(6)
         peak_cap = _convert_to_number(peak_value, peak_unit)
-        
+
         time_to_peak = vip_match.group(7).strip()
-        
+
         return {
             "token_name": None,  # Updates don't contain token name
             "entry_cap": entry_cap,
@@ -127,27 +127,27 @@ def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, 
             "vip_x": vip_x,
             "message_type": "update",
             "contract_address": None,
-            "time_to_peak": time_to_peak
+            "time_to_peak": time_to_peak,
         }
-    
+
     # Pattern for regular update messages (no VIP)
     # 🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m
     regular_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?:\s|$)"
-    
+
     regular_match = re.search(regular_pattern, message, re.IGNORECASE | re.DOTALL)
     if regular_match:
         x_gain = float(regular_match.group(1))
-        
+
         entry_value = float(regular_match.group(2))
         entry_unit = regular_match.group(3)
         entry_cap = _convert_to_number(entry_value, entry_unit)
-        
+
         peak_value = float(regular_match.group(4))
         peak_unit = regular_match.group(5)
         peak_cap = _convert_to_number(peak_value, peak_unit)
-        
+
         time_to_peak = regular_match.group(6).strip()
-        
+
         return {
             "token_name": None,  # Updates don't contain token name
             "entry_cap": entry_cap,
@@ -156,53 +156,57 @@ def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, 
             "vip_x": None,
             "message_type": "update",
             "contract_address": None,
-            "time_to_peak": time_to_peak
+            "time_to_peak": time_to_peak,
         }
-    
+
     return None
 
 
-def _parse_discovery_message(message: str) -> Optional[Dict[str, Union[str, float, None]]]:
+def _parse_discovery_message(
+    message: str,
+) -> Optional[Dict[str, Union[str, float, None]]]:
     """Parse discovery messages with the new markdown link format."""
-    
+
     # This new pattern correctly handles the `[Token Name](URL)` format and
     # uses named capture groups for clarity and robustness.
     # It looks for the token name, contract address, and market cap.
     discovery_pattern = re.compile(
         r"\[(?P<token_name>[^\]]+)\]"  # Group "token_name": Captures the full token name inside brackets.
-        r"\(https?://[^\)]+\)"          # Matches the (URL) part, which we don't need to capture.
-        r".*?"                          # Non-greedily matches characters between the URL and address.
+        r"\(https?://[^\)]+\)"  # Matches the (URL) part, which we don't need to capture.
+        r".*?"  # Non-greedily matches characters between the URL and address.
         r"`(?P<contract_address>[A-Za-z0-9]{30,})`"  # Group "contract_address": Captures the address from within backticks.
-        r".*?"                          # Non-greedily matches characters between the address and the cap.
+        r".*?"  # Non-greedily matches characters between the address and the cap.
         r"Cap:`\s*\**(?P<cap_value>[0-9]+(?:\.[0-9]+)?)\s*(?P<cap_unit>[KMB]?)\**",  # Named groups for cap value and unit.
-        re.DOTALL | re.IGNORECASE
+        re.DOTALL | re.IGNORECASE,
     )
 
     match = discovery_pattern.search(message)
-    
+
     if match:
         data = match.groupdict()
-        
-        current_cap = _convert_to_number(float(data['cap_value']), data.get('cap_unit'))
-        
+
+        current_cap = _convert_to_number(float(data["cap_value"]), data.get("cap_unit"))
+
         # For discovery posts, entry_cap and peak_cap are the same, and x_gain is 1.0.
         return {
-            "token_name": data['token_name'].strip(),
+            "token_name": data["token_name"].strip(),
             "entry_cap": current_cap,
             "peak_cap": current_cap,
             "x_gain": 1.0,
             "vip_x": None,
             "message_type": "discovery",
-            "contract_address": data['contract_address'].strip()
+            "contract_address": data["contract_address"].strip(),
         }
-        
+
     logger.debug("Message did not match the primary discovery pattern.")
     return None
 
 
-def _parse_fallback_format(message: str) -> Optional[Dict[str, Union[str, float, None]]]:
+def _parse_fallback_format(
+    message: str,
+) -> Optional[Dict[str, Union[str, float, None]]]:
     """Parse fallback format: 'Entry: 45K MC Peak: 180K MC (4x)'"""
-    
+
     # Extract token name (optional)
     token_name = None
     token_match = re.search(r"\$([A-Z][A-Z0-9]*)", message, re.IGNORECASE)
@@ -249,7 +253,7 @@ def _parse_fallback_format(message: str) -> Optional[Dict[str, Union[str, float,
         "x_gain": x_gain,
         "vip_x": vip_x,
         "message_type": "update",
-        "contract_address": None
+        "contract_address": None,
     }
 
 
@@ -272,21 +276,21 @@ def link_messages_to_calls(messages: List[Dict]) -> List[Dict]:
         field in the 'parsed_data' dictionary for linked updates.
     """
     # Create a lookup map for message_id -> message
-    message_map = {msg['message_id']: msg for msg in messages}
+    message_map = {msg["message_id"]: msg for msg in messages}
 
     linked_messages = []
     for msg in messages:
         # Ensure we don't modify the original dict
         updated_msg = msg.copy()
-        
+
         # We only need to link messages that are updates and are replies
         reply_to_id = updated_msg.get("reply_to_message_id")
-        
+
         parsed_data = updated_msg.get("parsed_data")
         if not parsed_data:
             linked_messages.append(updated_msg)
             continue
-            
+
         # Ensure parsed_data is a mutable dictionary
         parsed_data = parsed_data.copy()
         updated_msg["parsed_data"] = parsed_data
@@ -294,11 +298,14 @@ def link_messages_to_calls(messages: List[Dict]) -> List[Dict]:
         if parsed_data.get("message_type") == "update" and reply_to_id:
             # Find the original message this was a reply to
             original_message = message_map.get(reply_to_id)
-            
+
             if original_message:
                 original_parsed_data = original_message.get("parsed_data")
                 # Check if the original message was a discovery call
-                if original_parsed_data and original_parsed_data.get("message_type") == "discovery":
+                if (
+                    original_parsed_data
+                    and original_parsed_data.get("message_type") == "discovery"
+                ):
                     # Link found! Use the database ID of the original message.
                     parsed_data["linked_to_call_id"] = original_message.get("id")
                 else:
@@ -309,9 +316,9 @@ def link_messages_to_calls(messages: List[Dict]) -> List[Dict]:
         else:
             # Not an update message or not a reply
             parsed_data["linked_to_call_id"] = None
-            
+
         linked_messages.append(updated_msg)
-        
+
     return linked_messages
 
 

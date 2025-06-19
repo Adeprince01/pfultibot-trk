@@ -63,22 +63,34 @@ class SQLiteStorage:
 
             # Add missing columns if they don't exist (for existing databases)
             try:
-                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN message_type TEXT")
+                self._connection.execute(
+                    "ALTER TABLE crypto_calls ADD COLUMN message_type TEXT"
+                )
                 logger.info("Added message_type column to crypto_calls table")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-            
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Failed to add message_type column: {e}")
+                # else: Column already exists, which is expected
+
             try:
-                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN contract_address TEXT")
+                self._connection.execute(
+                    "ALTER TABLE crypto_calls ADD COLUMN contract_address TEXT"
+                )
                 logger.info("Added contract_address column to crypto_calls table")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-                
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Failed to add contract_address column: {e}")
+                # else: Column already exists, which is expected
+
             try:
-                self._connection.execute("ALTER TABLE crypto_calls ADD COLUMN time_to_peak TEXT")
+                self._connection.execute(
+                    "ALTER TABLE crypto_calls ADD COLUMN time_to_peak TEXT"
+                )
                 logger.info("Added time_to_peak column to crypto_calls table")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.warning(f"Failed to add time_to_peak column: {e}")
+                # else: Column already exists, which is expected
 
             # Create raw_messages table for storing ALL messages before classification
             self._connection.execute(
@@ -241,7 +253,7 @@ class SQLiteStorage:
 
         Args:
             message_data: Dictionary containing raw message data
-                Expected keys: message_id, channel_id, channel_name, 
+                Expected keys: message_id, channel_id, channel_name,
                 message_text, message_date
 
         Raises:
@@ -268,17 +280,19 @@ class SQLiteStorage:
             )
             self._connection.commit()
 
-            logger.debug(f"Stored raw message {message_data['message_id']} from channel {message_data['channel_id']}")
+            logger.debug(
+                f"Stored raw message {message_data['message_id']} from channel {message_data['channel_id']}"
+            )
 
         except sqlite3.Error as e:
             logger.error(f"Failed to store raw message to SQLite: {e}")
             raise
 
     def get_raw_messages(
-        self, 
-        limit: Optional[int] = None, 
+        self,
+        limit: Optional[int] = None,
         channel_id: Optional[int] = None,
-        unclassified_only: bool = False
+        unclassified_only: bool = False,
     ) -> List[Dict[str, Any]]:
         """Retrieve raw messages from storage.
 
@@ -346,16 +360,16 @@ class SQLiteStorage:
 
     def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
         """Get the crypto call ID for a given message ID.
-        
+
         This method is used to link update messages to their original discovery calls
         by looking up the database ID of a crypto call based on its message ID.
-        
+
         Args:
             message_id: The Telegram message ID to look up
-            
+
         Returns:
             The database ID of the crypto call, or None if not found
-            
+
         Raises:
             Exception: If database query fails
         """
@@ -365,20 +379,24 @@ class SQLiteStorage:
         try:
             cursor = self._connection.execute(
                 "SELECT id FROM crypto_calls WHERE message_id = ? LIMIT 1",
-                (message_id,)
+                (message_id,),
             )
             row = cursor.fetchone()
-            
+
             if row:
                 crypto_call_id = row["id"]
-                logger.debug(f"Found crypto call ID {crypto_call_id} for message {message_id}")
+                logger.debug(
+                    f"Found crypto call ID {crypto_call_id} for message {message_id}"
+                )
                 return crypto_call_id
             else:
                 logger.debug(f"No crypto call found for message {message_id}")
                 return None
-                
+
         except sqlite3.Error as e:
-            logger.error(f"Failed to lookup crypto call by message ID {message_id}: {e}")
+            logger.error(
+                f"Failed to lookup crypto call by message ID {message_id}: {e}"
+            )
             raise
 
     def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, Any]]:
@@ -395,18 +413,17 @@ class SQLiteStorage:
 
         try:
             cursor = self._connection.execute(
-                "SELECT * FROM crypto_calls WHERE id = ? LIMIT 1",
-                (call_id,)
+                "SELECT * FROM crypto_calls WHERE id = ? LIMIT 1", (call_id,)
             )
             row = cursor.fetchone()
-            
+
             if row:
                 # Convert sqlite3.Row to a dictionary
                 return dict(row)
             else:
                 logger.debug(f"No crypto call found for ID {call_id}")
                 return None
-                
+
         except sqlite3.Error as e:
             logger.error(f"Failed to lookup crypto call by ID {call_id}: {e}")
             raise

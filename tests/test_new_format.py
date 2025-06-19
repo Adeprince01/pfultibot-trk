@@ -9,9 +9,10 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.parser import parse_crypto_call
 
+
 def test_new_format():
     """Test the new message format from user's image."""
-    
+
     # Recreate the message from the image
     message = """Pumpfun Ultimate Alert
 this is peak (PEAK)
@@ -43,9 +44,9 @@ Early:
     print("📝 Message:")
     print(message[:200] + "..." if len(message) > 200 else message)
     print("\n" + "=" * 60)
-    
+
     result = parse_crypto_call(message)
-    
+
     print("🔍 Parser Result:")
     if result:
         print("✅ SUCCESS! Parser detected:")
@@ -54,25 +55,27 @@ Early:
     else:
         print("❌ FAILED! Parser returned None")
         print("\n🔧 Let's debug step by step...")
-        
+
         # Test each pattern individually
         import re
-        
+
         print("\n1. Testing pfultimate result pattern (🎉):")
         pfultimate_pattern = r"🎉\s*([0-9]+(?:\.[0-9]+)?)x"
         if re.search(pfultimate_pattern, message):
             print("   ✅ Found pfultimate pattern")
         else:
             print("   ❌ No pfultimate pattern")
-        
+
         print("\n2. Testing discovery pattern:")
-        discovery_pattern = r"(.+?)\s*\(([^)]+)\).*?Cap:\s*([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)"
+        discovery_pattern = (
+            r"(.+?)\s*\(([^)]+)\).*?Cap:\s*([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)"
+        )
         match = re.search(discovery_pattern, message, re.IGNORECASE | re.DOTALL)
         if match:
             print(f"   ✅ Found discovery pattern: {match.groups()}")
         else:
             print("   ❌ No discovery pattern")
-        
+
         print("\n3. Testing fallback pattern:")
         entry_pattern = r"Entry:?\s*([0-9]+(?:\.[0-9]+)?)\s*([KMB])?"
         if re.search(entry_pattern, message):
@@ -80,5 +83,6 @@ Early:
         else:
             print("   ❌ No entry pattern")
 
+
 if __name__ == "__main__":
-    test_new_format() 
+    test_new_format()

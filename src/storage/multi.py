@@ -41,14 +41,14 @@ class MultiStorage:
         self.excel_path = excel_path
         self.sheet_id = sheet_id
         self.credentials_path = credentials_path
-        
+
         # Validate Google Sheets configuration
         if sheet_id and not credentials_path:
             raise ValueError("credentials_path is required when sheet_id is provided")
-        
+
         # Initialize storage backends
         self._init_storage_backends()
-        
+
         # Track which backends are active
         self.active_backends = []
         if self.sqlite_storage:
@@ -57,8 +57,10 @@ class MultiStorage:
             self.active_backends.append("Excel")
         if self.sheets_storage:
             self.active_backends.append("Google Sheets")
-        
-        logger.info(f"MultiStorage initialized with backends: {', '.join(self.active_backends)}")
+
+        logger.info(
+            f"MultiStorage initialized with backends: {', '.join(self.active_backends)}"
+        )
 
     def _init_storage_backends(self) -> None:
         """Initialize all requested storage backends.
@@ -88,8 +90,7 @@ class MultiStorage:
         if self.sheet_id and self.credentials_path:
             try:
                 self.sheets_storage = GoogleSheetsStorage(
-                    sheet_id=self.sheet_id,
-                    credentials_path=self.credentials_path
+                    sheet_id=self.sheet_id, credentials_path=self.credentials_path
                 )
                 logger.info(f"Google Sheets storage initialized: {self.sheet_id}")
             except Exception as e:
@@ -152,8 +153,10 @@ class MultiStorage:
                 errors.append(error_msg)
 
         # Log results
-        token = data.get('token_name', 'Unknown')
-        logger.info(f"Data for {token} stored to {success_count}/{len(self.active_backends)} backends")
+        token = data.get("token_name", "Unknown")
+        logger.info(
+            f"Data for {token} stored to {success_count}/{len(self.active_backends)} backends"
+        )
 
         # If all storage operations failed, raise an exception
         if success_count == 0:
@@ -197,7 +200,7 @@ class MultiStorage:
 
         Args:
             message_data: Dictionary containing raw message data
-                Expected keys: message_id, channel_id, channel_name, 
+                Expected keys: message_id, channel_id, channel_name,
                 message_text, message_date, reply_to_message_id
 
         Raises:
@@ -216,7 +219,9 @@ class MultiStorage:
         try:
             if self.sqlite_storage:
                 self.sqlite_storage.store_raw_message(message_data)
-                logger.debug(f"Raw message {message_data.get('message_id')} stored to SQLite")
+                logger.debug(
+                    f"Raw message {message_data.get('message_id')} stored to SQLite"
+                )
             else:
                 logger.warning("Cannot store raw message: SQLite storage not available")
         except Exception as e:
@@ -224,10 +229,10 @@ class MultiStorage:
             raise
 
     def get_raw_messages(
-        self, 
-        limit: Optional[int] = None, 
+        self,
+        limit: Optional[int] = None,
         channel_id: Optional[int] = None,
-        unclassified_only: bool = False
+        unclassified_only: bool = False,
     ) -> List[Dict[str, Any]]:
         """Retrieve raw messages from primary storage (SQLite only).
 
@@ -244,11 +249,15 @@ class MultiStorage:
         """
         try:
             if self.sqlite_storage:
-                records = self.sqlite_storage.get_raw_messages(limit, channel_id, unclassified_only)
+                records = self.sqlite_storage.get_raw_messages(
+                    limit, channel_id, unclassified_only
+                )
                 logger.debug(f"Retrieved {len(records)} raw messages from SQLite")
                 return records
             else:
-                logger.warning("Cannot retrieve raw messages: SQLite storage not available")
+                logger.warning(
+                    "Cannot retrieve raw messages: SQLite storage not available"
+                )
                 return []
         except Exception as e:
             logger.error(f"Failed to retrieve raw messages: {e}")
@@ -286,4 +295,4 @@ class MultiStorage:
             except Exception as e:
                 logger.error(f"Error closing Google Sheets storage: {e}")
 
-        logger.info("All storage backends closed") 
+        logger.info("All storage backends closed")
