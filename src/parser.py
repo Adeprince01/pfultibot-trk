@@ -102,7 +102,7 @@ def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, 
 
     # Pattern for update messages with both regular and VIP multipliers
     # 🔥 5.4x(6.6x from VIP) | 💹From 43.6K ↗️ 234.1K within 5d
-    vip_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?:\s|$)"
+    vip_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?::?\s|$)"
 
     vip_match = re.search(vip_pattern, message, re.IGNORECASE | re.DOTALL)
     if vip_match:
@@ -132,7 +132,13 @@ def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, 
 
     # Pattern for regular update messages (no VIP)
     # 🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m
-    regular_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?:\s|$)"
+    regular_pattern = (
+        r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x"
+        r"\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?"
+        r"\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?"
+        r"\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?"
+        r"\s*[`]*within[`]*\s*(.+?)(?::?\s|$)"
+    )
 
     regular_match = re.search(regular_pattern, message, re.IGNORECASE | re.DOTALL)
     if regular_match:
