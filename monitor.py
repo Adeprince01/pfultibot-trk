@@ -8,6 +8,7 @@ Features:
 - Connection reliability and auto-reconnection
 - Health monitoring and statistics
 - Production-ready error handling
+- Cloud deployment with session management
 """
 
 import asyncio
@@ -22,6 +23,7 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.listener import ChannelConfig, MessageHandler, TelegramListener
+from src.session_manager import ensure_session_file
 from src.settings import settings
 from src.storage.multi import MultiStorage
 
@@ -211,6 +213,17 @@ class EnhancedCryptoMonitor:
 
     def __init__(self) -> None:
         """Initialize the enhanced monitor."""
+        # Ensure session file exists (for cloud deployment)
+        logger.info("🔐 Ensuring Telegram session file...")
+        try:
+            session_path = ensure_session_file()
+            if session_path:
+                logger.info(f"✅ Session file ready: {session_path}")
+            else:
+                logger.warning("⚠️ No session file available - authentication may be required")
+        except Exception as e:
+            logger.error(f"❌ Session file error: {e}")
+            
         self.storage = EnhancedProductionStorage(Path("crypto_calls_production.db"))
         self.listener = TelegramListener(settings)
         self.running = False
