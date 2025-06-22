@@ -184,6 +184,27 @@ class EnhancedProductionStorage:
         )
         self.storage.close()
 
+    def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
+        """Get crypto call ID by message ID from underlying storage."""
+        return self.storage.get_crypto_call_by_message_id(message_id)
+
+    def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, any]]:
+        """Get crypto call by ID from underlying storage."""
+        return self.storage.get_crypto_call_by_id(call_id)
+
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find related discovery call from underlying storage."""
+        return self.storage.find_related_discovery(
+            channel_name, token_name, contract_address, entry_cap, since_hours
+        )
+
 
 class EnhancedCryptoMonitor:
     """Enhanced crypto call monitor with reliability features."""

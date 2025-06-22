@@ -296,3 +296,30 @@ class MultiStorage:
                 logger.error(f"Error closing Google Sheets storage: {e}")
 
         logger.info("All storage backends closed")
+
+    def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
+        """Get crypto call ID by message ID from primary storage (SQLite)."""
+        if self.sqlite_storage:
+            return self.sqlite_storage.get_crypto_call_by_message_id(message_id)
+        return None
+
+    def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, Any]]:
+        """Get crypto call by ID from primary storage (SQLite)."""
+        if self.sqlite_storage:
+            return self.sqlite_storage.get_crypto_call_by_id(call_id)
+        return None
+
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find related discovery call from primary storage (SQLite)."""
+        if self.sqlite_storage:
+            return self.sqlite_storage.find_related_discovery(
+                channel_name, token_name, contract_address, entry_cap, since_hours
+            )
+        return None

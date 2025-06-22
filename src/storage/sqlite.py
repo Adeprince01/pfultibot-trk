@@ -427,3 +427,114 @@ class SQLiteStorage:
         except sqlite3.Error as e:
             logger.error(f"Failed to lookup crypto call by ID {call_id}: {e}")
             raise
+
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find a related discovery call using heuristic matching.
+
+        Looks for discovery calls in the same channel within the time window
+        that match by contract address, token name, or entry cap.
+
+        Args:
+            channel_name: Name of the channel to search in
+            token_name: Token name to match (case-insensitive)
+            contract_address: Contract address to match (exact)
+            entry_cap: Entry market cap to match (within ±10%)
+            since_hours: Hours to look back for discovery calls
+
+        Returns:
+            Database ID of the best matching discovery call, or None if no match
+
+        Raises:
+            Exception: If database query fails
+        """
+        if not self._connection:
+            raise Exception("Database connection is not available")
+
+        try:
+            # Priority 1: Exact contract address match
+            if contract_address:
+                cursor = self._connection.execute(
+                    """
+                    SELECT id, created_at
+                    FROM crypto_calls 
+                    WHERE channel_name = ? 
+                    AND contract_address = ?
+                    AND message_type = 'discovery'
+                    AND datetime(created_at) >= datetime('now', '-{} hours')
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """.format(
+                        since_hours
+                    ),
+                    (channel_name, contract_address),
+                )
+
+                row = cursor.fetchone()
+                if row:
+                    logger.info(
+                        f"Found discovery call {row['id']} by contract address match"
+                    )
+                    return row["id"]
+
+            # Priority 2: Token name match (case-insensitive)
+            if token_name:
+                cursor = self._connection.execute(
+                    """
+                    SELECT id, created_at
+                    FROM crypto_calls 
+                    WHERE channel_name = ? 
+                    AND LOWER(token_name) = LOWER(?)
+                    AND message_type = 'discovery'
+                    AND datetime(created_at) >= datetime('now', '-{} hours')
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """.format(
+                        since_hours
+                    ),
+                    (channel_name, token_name),
+                )
+
+                row = cursor.fetchone()
+                if row:
+                    logger.info(f"Found discovery call {row['id']} by token name match")
+                    return row["id"]
+
+            # Priority 3: Entry cap match (within ±10% and recent)
+            if entry_cap:
+                cap_min = entry_cap * 0.9
+                cap_max = entry_cap * 1.1
+
+                cursor = self._connection.execute(
+                    """
+                    SELECT id, created_at, entry_cap
+                    FROM crypto_calls 
+                    WHERE channel_name = ? 
+                    AND entry_cap BETWEEN ? AND ?
+                    AND message_type = 'discovery'
+                    AND datetime(created_at) >= datetime('now', '-30 minutes')
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """,
+                    (channel_name, cap_min, cap_max),
+                )
+
+                row = cursor.fetchone()
+                if row:
+                    logger.info(
+                        f"Found discovery call {row['id']} by entry cap match ({row['entry_cap']})"
+                    )
+                    return row["id"]
+
+            logger.debug(f"No matching discovery call found for channel {channel_name}")
+            return None
+
+        except sqlite3.Error as e:
+            logger.error(f"Failed to find related discovery call: {e}")
+            raise

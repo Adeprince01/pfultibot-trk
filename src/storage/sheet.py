@@ -227,6 +227,34 @@ class GoogleSheetsStorage:
                 logger.error(f"Error closing Google Sheets client: {e}")
                 # Don't re-raise as this is cleanup code
 
+    def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
+        """Get crypto call ID by message ID - not implemented for Google Sheets storage."""
+        logger.warning(
+            "get_crypto_call_by_message_id not implemented for Google Sheets storage"
+        )
+        return None
+
+    def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, Any]]:
+        """Get crypto call by ID - not implemented for Google Sheets storage."""
+        logger.warning(
+            "get_crypto_call_by_id not implemented for Google Sheets storage"
+        )
+        return None
+
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find related discovery call - not implemented for Google Sheets storage."""
+        logger.warning(
+            "find_related_discovery not implemented for Google Sheets storage"
+        )
+        return None
+
 
 def append_row(data: Dict[str, Any]) -> None:
     """Legacy function for backwards compatibility.

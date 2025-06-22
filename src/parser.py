@@ -98,72 +98,133 @@ def parse_crypto_call(
 
 
 def _parse_update_message(message: str) -> Optional[Dict[str, Union[str, float, None]]]:
-    """Parse price update messages like '🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m'"""
+    """Parse price update messages with improved regex patterns.
 
-    # Pattern for update messages with both regular and VIP multipliers
-    # 🔥 5.4x(6.6x from VIP) | 💹From 43.6K ↗️ 234.1K within 5d
-    vip_pattern = r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?\s*[`]*within[`]*\s*(.+?)(?::?\s|$)"
+    Handles various formats like:
+    - 🌕 **3.6x(4.6x from VIP)** `|` 💹`From` **42.0K** ↗️ **115.0K** `within` **8m**
+    - 🚀 **10.8x(18.4x from VIP)** `|` 💹`From` **45.0K** ↗️ **580.0K** `within` **3h**
+    - 🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m
+    """
 
-    vip_match = re.search(vip_pattern, message, re.IGNORECASE | re.DOTALL)
-    if vip_match:
-        x_gain = float(vip_match.group(1))
-        vip_x = float(vip_match.group(2))
+    # Enhanced pattern components
+    emoji = r"[🎉🔥🌕⚡️🚀🌙]?"  # Optional emoji
+    markup = r"[\*`]*"  # Optional markdown/backtick markup
+    separator = r"[`|]*"  # Optional separators
+    arrow = r"[↗️→]"  # Arrow symbols
+    number = r"([0-9]+(?:\.[0-9]+)?)"  # Decimal number
+    unit = r"([KMBkmb]?)"  # Optional unit
 
-        entry_value = float(vip_match.group(3))
-        entry_unit = vip_match.group(4)
-        entry_cap = _convert_to_number(entry_value, entry_unit)
-
-        peak_value = float(vip_match.group(5))
-        peak_unit = vip_match.group(6)
-        peak_cap = _convert_to_number(peak_value, peak_unit)
-
-        time_to_peak = vip_match.group(7).strip()
-
-        return {
-            "token_name": None,  # Updates don't contain token name
-            "entry_cap": entry_cap,
-            "peak_cap": peak_cap,
-            "x_gain": x_gain,
-            "vip_x": vip_x,
-            "message_type": "update",
-            "contract_address": None,
-            "time_to_peak": time_to_peak,
-        }
-
-    # Pattern for regular update messages (no VIP)
-    # 🎉 2.6x | 💹From 43.7K ↗️ 115.0K within 8m
-    regular_pattern = (
-        r"[🎉🔥🌕⚡️🚀🌙]\s*\*?\*?([0-9]+(?:\.[0-9]+)?)x"
-        r"\s*\(([0-9]+(?:\.[0-9]+)?)x\s*from\s*VIP\)\*?\*?"
-        r"\s*[`|]*\s*💹[`]*From[`]*\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?"
-        r"\s*↗️\s*\*?\*?([0-9]+(?:\.[0-9]+)?)\s*([KMB]?)\*?\*?"
-        r"\s*[`]*within[`]*\s*(.+?)(?::?\s|$)"
+    # Pattern for VIP messages: 3.6x(4.6x from VIP)
+    vip_pattern = re.compile(
+        rf"{emoji}\s*{markup}{number}x\s*\(\s*{number}x\s+from\s+VIP\s*\){markup}"  # VIP multipliers
+        rf"\s*{separator}\s*💹\s*{markup}From{markup}\s*{markup}{number}\s*{unit}{markup}"  # From cap
+        rf"\s*{arrow}\s*{markup}{number}\s*{unit}{markup}"  # To cap
+        rf"\s*{markup}within{markup}\s*{markup}(.+?){markup}(?:\s*$|:)",  # Time
+        re.IGNORECASE | re.DOTALL | re.VERBOSE,
     )
 
-    regular_match = re.search(regular_pattern, message, re.IGNORECASE | re.DOTALL)
+    vip_match = vip_pattern.search(message)
+    if vip_match:
+        try:
+            x_gain = float(vip_match.group(1))
+            vip_x = float(vip_match.group(2))
+
+            entry_value = float(vip_match.group(3))
+            entry_unit = vip_match.group(4) or ""
+            entry_cap = _convert_to_number(entry_value, entry_unit)
+
+            peak_value = float(vip_match.group(5))
+            peak_unit = vip_match.group(6) or ""
+            peak_cap = _convert_to_number(peak_value, peak_unit)
+
+            time_to_peak = vip_match.group(7).strip()
+
+            return {
+                "token_name": None,
+                "entry_cap": entry_cap,
+                "peak_cap": peak_cap,
+                "x_gain": x_gain,
+                "vip_x": vip_x,
+                "message_type": "update",
+                "contract_address": None,
+                "time_to_peak": time_to_peak,
+            }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"VIP pattern matched but failed to parse values: {e}")
+
+    # Pattern for regular messages: 2.6x | 💹From 43.7K ↗️ 115.0K within 8m
+    regular_pattern = re.compile(
+        rf"{emoji}\s*{markup}{number}x{markup}"  # Gain multiplier
+        rf"\s*{separator}\s*💹\s*{markup}From{markup}\s*{markup}{number}\s*{unit}{markup}"  # From cap
+        rf"\s*{arrow}\s*{markup}{number}\s*{unit}{markup}"  # To cap
+        rf"\s*{markup}within{markup}\s*{markup}(.+?){markup}(?:\s*$|:)",  # Time
+        re.IGNORECASE | re.DOTALL | re.VERBOSE,
+    )
+
+    regular_match = regular_pattern.search(message)
     if regular_match:
-        x_gain = float(regular_match.group(1))
+        try:
+            x_gain = float(regular_match.group(1))
 
-        entry_value = float(regular_match.group(2))
-        entry_unit = regular_match.group(3)
-        entry_cap = _convert_to_number(entry_value, entry_unit)
+            entry_value = float(regular_match.group(2))
+            entry_unit = regular_match.group(3) or ""
+            entry_cap = _convert_to_number(entry_value, entry_unit)
 
-        peak_value = float(regular_match.group(4))
-        peak_unit = regular_match.group(5)
-        peak_cap = _convert_to_number(peak_value, peak_unit)
+            peak_value = float(regular_match.group(4))
+            peak_unit = regular_match.group(5) or ""
+            peak_cap = _convert_to_number(peak_value, peak_unit)
 
-        time_to_peak = regular_match.group(6).strip()
+            time_to_peak = regular_match.group(6).strip()
 
-        return {
-            "token_name": None,  # Updates don't contain token name
-            "entry_cap": entry_cap,
-            "peak_cap": peak_cap,
-            "x_gain": x_gain,
-            "vip_x": None,
-            "message_type": "update",
-            "contract_address": None,
-            "time_to_peak": time_to_peak,
-        }
+            return {
+                "token_name": None,
+                "entry_cap": entry_cap,
+                "peak_cap": peak_cap,
+                "x_gain": x_gain,
+                "vip_x": None,
+                "message_type": "update",
+                "contract_address": None,
+                "time_to_peak": time_to_peak,
+            }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"Regular pattern matched but failed to parse values: {e}")
+
+    # Fallback pattern for simpler formats without emoji
+    simple_pattern = re.compile(
+        rf"{markup}{number}x{markup}"  # Just the multiplier
+        rf".*?{markup}From{markup}\s*{markup}{number}\s*{unit}{markup}"  # From cap
+        rf".*?{arrow}.*?{markup}{number}\s*{unit}{markup}"  # To cap
+        rf".*?{markup}within{markup}\s*{markup}(.+?){markup}(?:\s*$|:)",  # Time
+        re.IGNORECASE | re.DOTALL | re.VERBOSE,
+    )
+
+    simple_match = simple_pattern.search(message)
+    if simple_match:
+        try:
+            x_gain = float(simple_match.group(1))
+
+            entry_value = float(simple_match.group(2))
+            entry_unit = simple_match.group(3) or ""
+            entry_cap = _convert_to_number(entry_value, entry_unit)
+
+            peak_value = float(simple_match.group(4))
+            peak_unit = simple_match.group(5) or ""
+            peak_cap = _convert_to_number(peak_value, peak_unit)
+
+            time_to_peak = simple_match.group(6).strip()
+
+            return {
+                "token_name": None,
+                "entry_cap": entry_cap,
+                "peak_cap": peak_cap,
+                "x_gain": x_gain,
+                "vip_x": None,
+                "message_type": "update",
+                "contract_address": None,
+                "time_to_peak": time_to_peak,
+            }
+        except (ValueError, IndexError) as e:
+            logger.debug(f"Simple pattern matched but failed to parse values: {e}")
 
     return None
 

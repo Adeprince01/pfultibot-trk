@@ -34,6 +34,7 @@ class ExcelStorage:
         self.file_path = file_path
         self._workbook: Optional[Workbook] = None
         self._worksheet: Optional[Worksheet] = None
+        self._header_map: Dict[str, int] = {}
         self._is_closed = False
         self._init_workbook()
 
@@ -63,11 +64,32 @@ class ExcelStorage:
                 self._create_headers()
                 self._save_workbook()
 
+            self._read_headers()  # Always read headers after init
             logger.info(f"Excel workbook initialized at {self.file_path}")
 
         except Exception as e:
             logger.error(f"Failed to initialize Excel workbook: {e}")
             raise
+
+    def _read_headers(self) -> None:
+        """Read header row and create a map of header names to column indices."""
+        if not self._worksheet:
+            raise Exception("Worksheet is not available")
+
+        self._header_map = {}
+        for col, cell in enumerate(self._worksheet[1], 1):
+            if cell.value:
+                self._header_map[str(cell.value)] = col
+
+        if not self._header_map:
+            logger.warning("Excel sheet has no headers. Re-creating them.")
+            self._create_headers()
+            # Reread headers after creating them
+            for col, cell in enumerate(self._worksheet[1], 1):
+                if cell.value:
+                    self._header_map[str(cell.value)] = col
+
+        logger.debug(f"Excel headers mapped: {self._header_map}")
 
     def _create_headers(self) -> None:
         """Create column headers in the worksheet."""
@@ -89,12 +111,22 @@ class ExcelStorage:
             "channel_name",
         ]
 
-        # Only add headers if the sheet is empty
-        if self._worksheet.max_row == 1 and all(
-            cell.value is None for cell in self._worksheet[1]
-        ):
+        # Check if we need to create headers
+        needs_headers = False
+        if self._worksheet.max_row == 0:
+            # Completely empty sheet
+            needs_headers = True
+        elif self._worksheet.max_row == 1:
+            # Check if first row is empty or has different headers
+            first_row_empty = all(cell.value is None for cell in self._worksheet[1])
+            if first_row_empty:
+                needs_headers = True
+
+        if needs_headers:
             for col, header in enumerate(headers, 1):
                 self._worksheet.cell(row=1, column=col, value=header)
+            self._header_map = {header: i for i, header in enumerate(headers, 1)}
+            logger.debug("Created Excel headers")
 
     def _save_workbook(self) -> None:
         """Save the workbook to file.
@@ -140,30 +172,22 @@ class ExcelStorage:
         if not self._worksheet or not self._workbook:
             raise Exception("Excel worksheet is not available")
 
+        if not self._header_map:
+            raise Exception("Excel headers not loaded. Cannot append row.")
+
         try:
             # Find the next empty row
             next_row = self._worksheet.max_row + 1
 
-            # Column order matches headers
-            columns = [
-                "token_name",
-                "entry_cap",
-                "peak_cap",
-                "x_gain",
-                "vip_x",
-                "message_type",
-                "contract_address",
-                "time_to_peak",
-                "linked_crypto_call_id",
-                "timestamp",
-                "message_id",
-                "channel_name",
-            ]
-
-            # Insert data into cells
-            for col, key in enumerate(columns, 1):
-                value = data.get(key)
-                self._worksheet.cell(row=next_row, column=col, value=value)
+            # Insert data into cells based on header map
+            for key, value in data.items():
+                if key in self._header_map:
+                    col = self._header_map[key]
+                    self._worksheet.cell(row=next_row, column=col, value=value)
+                else:
+                    logger.warning(
+                        f"Column '{key}' not found in Excel headers. Skipping."
+                    )
 
             # Save the workbook
             self._save_workbook()
@@ -196,13 +220,11 @@ class ExcelStorage:
         try:
             records = []
 
-            # Get headers from first row
-            headers = []
-            for cell in self._worksheet[1]:
-                if cell.value:
-                    headers.append(cell.value)
-                else:
-                    break
+            # Get headers from first row using the stored map
+            if not self._header_map:
+                self._read_headers()  # Ensure headers are read
+
+            headers = sorted(self._header_map.keys(), key=lambda h: self._header_map[h])
 
             if not headers:
                 return []
@@ -215,12 +237,14 @@ class ExcelStorage:
             # Determine how many records to read
             end_row = max_row
             if limit is not None:
-                end_row = min(1 + limit, max_row)
+                start_row = max(2, max_row - limit + 1)
+            else:
+                start_row = 2
 
-            for row_num in range(2, end_row + 1):
+            for row_num in range(start_row, max_row + 1):
                 row_data = {}
-                for col, header in enumerate(headers, 1):
-                    cell_value = self._worksheet.cell(row=row_num, column=col).value
+                for header, col_idx in self._header_map.items():
+                    cell_value = self._worksheet.cell(row=row_num, column=col_idx).value
                     row_data[header] = cell_value
                 records.append(row_data)
 
@@ -250,3 +274,27 @@ class ExcelStorage:
             except Exception as e:
                 logger.error(f"Error closing Excel workbook: {e}")
                 # Don't re-raise as this is cleanup code
+
+    def get_crypto_call_by_message_id(self, message_id: int) -> Optional[int]:
+        """Get crypto call ID by message ID - not implemented for Excel storage."""
+        logger.warning(
+            "get_crypto_call_by_message_id not implemented for Excel storage"
+        )
+        return None
+
+    def get_crypto_call_by_id(self, call_id: int) -> Optional[Dict[str, Any]]:
+        """Get crypto call by ID - not implemented for Excel storage."""
+        logger.warning("get_crypto_call_by_id not implemented for Excel storage")
+        return None
+
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find related discovery call - not implemented for Excel storage."""
+        logger.warning("find_related_discovery not implemented for Excel storage")
+        return None

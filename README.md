@@ -10,6 +10,7 @@ A sophisticated Python application that monitors Telegram channels for cryptocur
 ## ✨ Key Features
 
 - **Advanced Message Linking**: Automatically connects update messages (e.g., "2.5x gain") to their original "discovery" calls using Telegram's reply system, ensuring perfect data attribution.
+- **Historical Data Backfill**: Powerful backfill script that re-parses previously unparsed messages with improved parser logic and links them to existing discovery calls.
 - **Real-time Monitoring**: Listens to specified Telegram channels 24/7 for live crypto calls.
 - **Intelligent Parsing**: Extracts key data points like token name, contract address, entry market cap, peak market cap, and X-gain multipliers.
 - **Multi-Storage Support**: Persists data simultaneously to SQLite, Excel, and Google Sheets.
@@ -23,6 +24,7 @@ A sophisticated Python application that monitors Telegram channels for cryptocur
 The application is built with a modular and scalable architecture:
 
 -   `monitor.py`: The main entry point for the production application. It orchestrates the listener and storage components.
+-   `backfill_unparsed_messages.py`: Backfill script that re-processes historical raw messages with improved parsing logic.
 -   `src/listener.py`: Handles the connection to Telegram, listens for new messages, and passes them to the parser.
 -   `src/parser.py`: Contains the logic for parsing different types of messages (discovery, update, bonding curve) and extracting structured data.
 -   `src/storage/`: A package with different storage backends.
@@ -120,6 +122,43 @@ start_monitor.bat
 
 The monitor will connect to Telegram and log its activity to both the console and a log file in the `logs/` directory.
 
+### Backfilling Historical Data
+
+The backfill script allows you to re-process previously unparsed raw messages with improved parsing logic and link them to existing discovery calls.
+
+#### Preview Mode (Safe Testing)
+```bash
+# Preview what will be backfilled (no database writes)
+python backfill_unparsed_messages.py --dry-run --verbose --limit 10
+```
+
+#### Process Recent Messages
+```bash
+# Backfill messages from the last 24 hours
+python backfill_unparsed_messages.py --since-hours 24 --batch 100
+```
+
+#### Process Historical Data
+```bash
+# Backfill messages from the last week
+python backfill_unparsed_messages.py --since-hours 168 --batch 200
+```
+
+#### Command Line Options
+- `--dry-run`: Preview mode - parse and link but don't write to database
+- `--since-hours N`: Only process messages newer than N hours (default: 24)
+- `--batch N`: Number of messages to process per batch (default: 500)
+- `--limit N`: Stop after processing N messages (0 = no limit)
+- `--verbose`: Print detailed progress information
+
+#### Backfill Features
+- **Reply-based Linking**: Automatically links update messages to discovery calls via Telegram reply relationships
+- **Heuristic Linking**: Smart matching by token name, contract address, or market cap when reply info isn't available
+- **Data Inheritance**: Update messages inherit token names and contract addresses from their linked discovery calls
+- **Batch Processing**: Memory-efficient processing for large datasets
+- **Progress Tracking**: Detailed statistics and logging with success rates
+- **Error Handling**: Graceful failure handling with transaction safety
+
 ### Analyzing the Data
 
 To view analytics based on the data collected in the SQLite database, run `analyze_database.py`:
@@ -142,6 +181,15 @@ The application can store data in multiple places simultaneously for redundancy 
 -   **Excel**: Disabled by default. Set `ENABLE_EXCEL=true` in `.env` to save all parsed calls to an Excel file.
 -   **Google Sheets**: Disabled by default. Set `ENABLE_SHEETS=true` and provide a `SHEET_ID` and `GOOGLE_CREDENTIALS_PATH` to save calls to a Google Sheet.
 
+## 🔄 Data Processing Workflow
+
+1. **Real-time Monitoring**: `monitor.py` continuously listens for new Telegram messages
+2. **Message Storage**: All raw messages are stored in the `raw_messages` table
+3. **Real-time Parsing**: Messages are immediately parsed and stored in `crypto_calls` table if successful
+4. **Backfill Processing**: `backfill_unparsed_messages.py` re-processes any messages that weren't initially parsed
+5. **Message Linking**: Both real-time and backfill processes link update messages to discovery calls
+6. **Data Analysis**: `analyze_database.py` provides insights into the complete dataset
+
 ## 🧑‍💻 Development & Contribution
 
 We use a suite of tools to maintain code quality.
@@ -157,6 +205,17 @@ black .
 isort .
 ```
 
+### Running Tests
+```bash
+# Run all tests
+pytest
+
+# Run specific test files
+pytest tests/test_backfill.py -v
+
+# Run tests with coverage
+pytest --cov=src
+```
 
 ## 📁 Project Structure
 
@@ -174,12 +233,36 @@ pfultibot/
 │   ├── parser.py
 │   └── settings.py
 ├── tests/                 # Unit and integration tests
+│   ├── test_backfill.py   # Backfill functionality tests
+│   └── ...               # Other test files
 ├── .env                   # Local environment variables (gitignored)
 ├── env.example            # Example environment file
 ├── analyze_database.py    # Main analysis script
 ├── authenticate_telegram.py # First-time auth script
+├── backfill_unparsed_messages.py # Historical data backfill script
 ├── monitor.py             # Main application entry point
 └── requirements.txt       # Python dependencies
 ```
 
-</rewritten_file>
+## 🚀 Production Tips
+
+### Daily Maintenance
+```bash
+# Run daily backfill to catch any missed messages
+python backfill_unparsed_messages.py --since-hours 24 --batch 100
+
+# Check database health
+python analyze_database.py
+```
+
+### Performance Optimization
+- Use appropriate batch sizes for backfill operations (100-500 messages)
+- Monitor log files in `logs/` directory for any issues
+- Run backfill during low-activity periods to avoid conflicts
+
+### Data Quality
+- The backfill script significantly improves data completeness by:
+  - Re-parsing messages with updated parser logic
+  - Linking previously unlinked update messages
+  - Inheriting token information from discovery calls
+  - Providing comprehensive linking statistics

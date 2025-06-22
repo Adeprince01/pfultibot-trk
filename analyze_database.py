@@ -7,6 +7,44 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+def _safe_parse_timestamp(ts: str) -> datetime:
+    """Parse timestamp string in either ISO-8601 or standard format.
+
+    Args:
+        ts: Timestamp string in various formats
+
+    Returns:
+        Parsed datetime object (always timezone-naive for comparison)
+
+    Raises:
+        ValueError: If timestamp cannot be parsed in any known format
+    """
+    # Try ISO-8601 format first (includes 'T' and microseconds)
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        # Convert to naive datetime for comparison
+        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+    except ValueError:
+        pass
+
+    # Try standard format without 'T'
+    try:
+        return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        pass
+
+    # Try format with timezone
+    try:
+        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S%z")
+        # Convert to naive datetime for comparison
+        return dt.replace(tzinfo=None)
+    except ValueError:
+        pass
+
+    # If all else fails, raise with helpful message
+    raise ValueError(f"Cannot parse timestamp: {ts}")
+
+
 def get_database_path() -> Optional[Path]:
     """Find the appropriate database file to use."""
     possible_paths = [
@@ -111,7 +149,10 @@ def view_linked_messages() -> None:
 
             if related_updates:
                 print(f"📊 UPDATES ({len(related_updates)} total):")
-                updates = sorted(related_updates, key=lambda x: x["created_at"])
+                # Sort updates by actual timestamp, not just created_at
+                updates = sorted(
+                    related_updates, key=lambda x: _safe_parse_timestamp(x["timestamp"])
+                )
 
                 for j, update in enumerate(updates, 1):
                     print(f"   #{j}. Update (ID: {update['id']})")
@@ -138,11 +179,14 @@ def view_linked_messages() -> None:
                     print()
 
                 # Show token summary
-                all_gains = []
+                all_gains: list[float] = []
+                # Start with discovery gain if it exists
                 if discovery["x_gain"]:
                     all_gains.append(discovery["x_gain"])
-                for update in related_updates:
-                    if update["x_gain"]:
+
+                # Add gains from chronologically sorted updates
+                for update in updates:
+                    if update["x_gain"] and update["x_gain"] not in all_gains:
                         all_gains.append(update["x_gain"])
 
                 if all_gains:
@@ -151,7 +195,7 @@ def view_linked_messages() -> None:
                     print(f"   Best Performance: {max(all_gains)}x")
                     print(f"   Latest Performance: {all_gains[-1]}x")
                     print(
-                        f"   Gain Progression: {' → '.join(f'{g}x' for g in all_gains)}"
+                        f"   Gain Progression: {' → '.join(f'{g:.1f}x' for g in all_gains)}"
                     )
             else:
                 print(f"📊 No updates found for this discovery")
@@ -540,6 +584,101 @@ def test_linking_integrity() -> None:
         print(f"❌ Error testing linking integrity: {e}")
 
 
+def fix_token_inheritance() -> None:
+    """Fix token name inheritance for existing records in the database."""
+    db_path = get_database_path()
+    if not db_path:
+        print("❌ No database files found!")
+        return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+
+        print(f"🔧 FIXING TOKEN NAME INHERITANCE")
+        print(f"📊 Database: {db_path}")
+        print("=" * 80)
+
+        # Find update records that are linked but missing token names
+        cursor = conn.execute(
+            """
+            SELECT 
+                cc1.id as update_id,
+                cc1.message_id as update_msg_id,
+                cc1.token_name as update_token,
+                cc1.linked_crypto_call_id as linked_to_id,
+                cc2.token_name as discovery_token
+            FROM crypto_calls cc1
+            JOIN crypto_calls cc2 ON cc1.linked_crypto_call_id = cc2.id
+            WHERE cc1.linked_crypto_call_id IS NOT NULL 
+            AND (cc1.token_name IS NULL OR cc1.token_name = 'Unknown')
+            AND cc2.token_name IS NOT NULL 
+            AND cc2.token_name != 'Unknown'
+        """
+        )
+
+        records_to_fix = cursor.fetchall()
+
+        if not records_to_fix:
+            print("✅ No records need token name inheritance fixes!")
+            return
+
+        print(
+            f"🔍 Found {len(records_to_fix)} records that need token name inheritance"
+        )
+        print()
+
+        # Show what will be fixed
+        for record in records_to_fix:
+            print(f"   Update ID {record['update_id']} (msg {record['update_msg_id']})")
+            print(f"      Current token: {record['update_token'] or 'NULL'}")
+            print(
+                f"      Will inherit: '{record['discovery_token']}' from discovery ID {record['linked_to_id']}"
+            )
+            print()
+
+        # Ask for confirmation
+        response = input(f"Fix {len(records_to_fix)} records? (y/N): ").strip().lower()
+        if response != "y":
+            print("❌ Operation cancelled")
+            return
+
+        # Apply the fixes
+        fixed_count = 0
+        for record in records_to_fix:
+            try:
+                cursor = conn.execute(
+                    """
+                    UPDATE crypto_calls 
+                    SET token_name = ? 
+                    WHERE id = ?
+                """,
+                    (record["discovery_token"], record["update_id"]),
+                )
+
+                if cursor.rowcount > 0:
+                    fixed_count += 1
+                    print(
+                        f"✅ Fixed record ID {record['update_id']}: inherited '{record['discovery_token']}'"
+                    )
+
+            except Exception as e:
+                print(f"❌ Failed to fix record ID {record['update_id']}: {e}")
+
+        # Commit the changes
+        conn.commit()
+        print()
+        print(f"🎉 Successfully fixed {fixed_count}/{len(records_to_fix)} records!")
+
+        conn.close()
+
+    except Exception as e:
+        print(f"❌ Error fixing token inheritance: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
 def main() -> None:
     """Main function with comprehensive analysis menu."""
     print("🔍 Crypto Call Database Analyzer")
@@ -551,9 +690,10 @@ def main() -> None:
         print("2. 📝 View Full Raw Message Text")
         print("3. 📊 Database Statistics & Structure")
         print("4. 🔬 Test Linking Integrity")
-        print("5. 🚪 Exit")
+        print("5. 🔧 Fix Token Name Inheritance")
+        print("6. 🚪 Exit")
 
-        choice = input("\nEnter choice (1-5): ").strip()
+        choice = input("\nEnter choice (1-6): ").strip()
 
         if choice == "1":
             view_linked_messages()
@@ -564,12 +704,14 @@ def main() -> None:
         elif choice == "4":
             test_linking_integrity()
         elif choice == "5":
+            fix_token_inheritance()
+        elif choice == "6":
             print("👋 Analysis complete!")
             break
         else:
             print("❌ Invalid choice")
 
-        if choice in ["1", "2", "3", "4"]:
+        if choice in ["1", "2", "3", "4", "5"]:
             input("\nPress Enter to continue...")
 
 

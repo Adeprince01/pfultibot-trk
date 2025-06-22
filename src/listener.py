@@ -116,6 +116,17 @@ class StorageProtocol(Protocol):
         """Get crypto call by ID."""
         ...
 
+    def find_related_discovery(
+        self,
+        channel_name: str,
+        token_name: Optional[str] = None,
+        contract_address: Optional[str] = None,
+        entry_cap: Optional[float] = None,
+        since_hours: int = 24,
+    ) -> Optional[int]:
+        """Find related discovery call using heuristic matching."""
+        ...
+
 
 class MessageHandler:
     """Handles incoming Telegram messages and processes crypto calls.
@@ -477,6 +488,60 @@ class MessageHandler:
                                 )
 
                         # --- END: NEW LINKING AND INHERITANCE LOGIC ---
+
+                        # --- START: FALLBACK HEURISTIC LINKING ---
+                        # If no link was found via reply, try heuristic matching
+                        if (
+                            not parsed_data.get("linked_crypto_call_id")
+                            and parsed_data.get("message_type") == "update"
+                        ):
+                            logger.debug(
+                                f"Attempting heuristic linking for update message {message.id}"
+                            )
+
+                            try:
+                                candidate_id = self.storage.find_related_discovery(
+                                    channel_name=channel_name,
+                                    token_name=parsed_data.get("token_name"),
+                                    contract_address=parsed_data.get(
+                                        "contract_address"
+                                    ),
+                                    entry_cap=parsed_data.get("entry_cap"),
+                                    since_hours=24,
+                                )
+
+                                if candidate_id:
+                                    parsed_data["linked_crypto_call_id"] = candidate_id
+                                    logger.info(
+                                        f"✅ Heuristically linked update message {message.id} to discovery call ID {candidate_id}"
+                                    )
+
+                                    # Inherit token name if the update doesn't have one
+                                    if not parsed_data.get("token_name"):
+                                        original_call = (
+                                            self.storage.get_crypto_call_by_id(
+                                                candidate_id
+                                            )
+                                        )
+                                        if original_call and original_call.get(
+                                            "token_name"
+                                        ):
+                                            parsed_data["token_name"] = original_call[
+                                                "token_name"
+                                            ]
+                                            logger.info(
+                                                f"Inherited token '{parsed_data['token_name']}' via heuristic linking"
+                                            )
+                                else:
+                                    logger.debug(
+                                        f"No heuristic match found for update message {message.id}"
+                                    )
+
+                            except Exception as e:
+                                logger.warning(
+                                    f"Heuristic linking failed for message {message.id}: {e}"
+                                )
+                        # --- END: FALLBACK HEURISTIC LINKING ---
 
                         # Format data for storage with all required metadata
                         channel_config = self.get_channel_config(message.chat_id)
