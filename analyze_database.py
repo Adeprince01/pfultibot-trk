@@ -6,6 +6,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Add new import for analytics
+from src.metrics import (
+    extract_crypto_calls_data,
+    generate_comprehensive_report,
+    calculate_win_rates,
+    calculate_performance_stats,
+    calculate_channel_performance,
+    cleanse_crypto_calls_data,
+    get_data_quality_report,
+)
+
 
 def _safe_parse_timestamp(ts: str) -> datetime:
     """Parse timestamp string in either ISO-8601 or standard format.
@@ -679,6 +690,305 @@ def fix_token_inheritance() -> None:
         traceback.print_exc()
 
 
+def run_comprehensive_analytics() -> None:
+    """Run comprehensive analytics using the new metrics functions."""
+    db_path = get_database_path()
+    if not db_path:
+        print("❌ No database files found!")
+        print("Run the monitor script first to collect data.")
+        return
+
+    try:
+        print(f"📊 COMPREHENSIVE ANALYTICS")
+        print(f"📁 Database: {db_path}")
+        print("=" * 80)
+
+        # Extract data
+        print("🔄 Extracting crypto calls data...")
+        df = extract_crypto_calls_data(db_path=db_path)
+        
+        if df.empty:
+            print("❌ No crypto calls data found in database.")
+            print("Run the monitor and let it collect some data first.")
+            return
+
+        print(f"✅ Loaded {len(df)} crypto calls")
+        print()
+
+        # Generate comprehensive report
+        print("🧮 Calculating analytics...")
+        report = generate_comprehensive_report(df)
+        
+        # Display results
+        print("📈 OVERALL PERFORMANCE")
+        print("-" * 40)
+        overview = report["overview"]
+        print(f"Total Calls: {overview['total_calls']}")
+        print(f"Valid Calls (with x_gain): {overview['valid_calls']}")
+        if overview['avg_x_gain']:
+            print(f"Average X-Gain: {overview['avg_x_gain']:.2f}x")
+            print(f"Median X-Gain: {overview['median_x_gain']:.2f}x")
+            print(f"Max X-Gain: {overview['max_x_gain']:.2f}x")
+            print(f"Min X-Gain: {overview['min_x_gain']:.2f}x")
+            print(f"Standard Deviation: {overview['std_x_gain']:.2f}")
+        print()
+
+        # Win rates
+        print("🎯 WIN RATES")
+        print("-" * 40)
+        win_rates = report["win_rates"]
+        print(f"2x or better: {win_rates['win_rate_2x']:.1%}")
+        print(f"3x or better: {win_rates['win_rate_3x']:.1%}")
+        print(f"5x or better: {win_rates['win_rate_5x']:.1%}")
+        print(f"10x or better: {win_rates['win_rate_10x']:.1%}")
+        print()
+
+        # Channel performance
+        print("📺 CHANNEL PERFORMANCE")
+        print("-" * 40)
+        channel_perf = report["channel_performance"]
+        if channel_perf:
+            for channel in channel_perf:
+                print(f"Channel: {channel['channel_name']}")
+                print(f"  Calls: {channel['total_calls']} | Avg Gain: {channel.get('avg_x_gain', 0):.2f}x")
+                print(f"  Win Rate (2x): {channel.get('win_rate_2x', 0):.1%} | Win Rate (5x): {channel.get('win_rate_5x', 0):.1%}")
+                print()
+        else:
+            print("No channel data available")
+
+        # Message type performance
+        print("📝 MESSAGE TYPE PERFORMANCE")
+        print("-" * 40)
+        msg_type_perf = report["message_type_performance"]
+        if msg_type_perf:
+            for msg_type in msg_type_perf:
+                print(f"Type: {msg_type['message_type']}")
+                print(f"  Calls: {msg_type['total_calls']} | Avg Gain: {msg_type.get('avg_x_gain', 0):.2f}x")
+                print(f"  Win Rate (2x): {msg_type.get('win_rate_2x', 0):.1%}")
+                print()
+        else:
+            print("No message type data available")
+
+        # Linking analysis
+        print("🔗 MESSAGE LINKING ANALYSIS")
+        print("-" * 40)
+        linking = report["linking_analysis"]
+        print(f"Total Calls: {linking['total_calls']}")
+        print(f"Discovery Calls: {linking['discovery_calls']}")
+        print(f"Update Calls: {linking['update_calls']}")
+        print(f"Successfully Linked: {linking['linked_calls']}")
+        print(f"Linking Success Rate: {linking['linking_rate']:.1%}")
+        print()
+
+        # Data quality
+        print("🔍 DATA QUALITY")
+        print("-" * 40)
+        quality = report["data_quality"]
+        print(f"Total Records: {quality['total_records']}")
+        print(f"Missing X-Gain: {quality['missing_x_gain']}")
+        print(f"Missing Entry Cap: {quality['missing_entry_cap']}")
+        print(f"Missing Peak Cap: {quality['missing_peak_cap']}")
+        print(f"Missing Timestamps: {quality['missing_timestamps']}")
+        print()
+
+        # Time-based performance (if available)
+        time_perf = report.get("time_based_performance", {})
+        if time_perf.get("daily_performance"):
+            print("📅 DAILY PERFORMANCE")
+            print("-" * 40)
+            for day, stats in time_perf["daily_performance"].items():
+                if stats.get('total_calls', 0) > 0:
+                    print(f"{day.capitalize()}: {stats['total_calls']} calls | Avg: {stats.get('avg_x_gain', 0):.2f}x | 2x Rate: {stats.get('win_rate_2x', 0):.1%}")
+            print()
+
+        # Save detailed report
+        import json
+        from pathlib import Path
+        
+        # Ensure reports directory exists
+        reports_dir = Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        
+        report_file = reports_dir / f"analytics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(report_file, 'w') as f:
+            json.dump(report, f, indent=2, default=str)
+        
+        print(f"💾 Detailed report saved to: {report_file}")
+
+    except Exception as e:
+        print(f"❌ Error during analytics: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def run_data_cleansing_analysis() -> None:
+    """Run data cleansing analysis and show before/after comparison."""
+    db_path = get_database_path()
+    if not db_path:
+        print("❌ No database files found!")
+        print("Run the monitor script first to collect data.")
+        return
+
+    try:
+        print(f"🧹 DATA CLEANSING ANALYSIS")
+        print(f"📁 Database: {db_path}")
+        print("=" * 80)
+
+        # Extract raw data
+        print("🔄 Extracting raw crypto calls data...")
+        raw_df = extract_crypto_calls_data(db_path=db_path)
+        
+        if raw_df.empty:
+            print("❌ No crypto calls data found in database.")
+            print("Run the monitor and let it collect some data first.")
+            return
+
+        print(f"✅ Loaded {len(raw_df)} raw records")
+        print()
+
+        # Generate data quality report for raw data
+        print("📊 RAW DATA QUALITY REPORT")
+        print("-" * 50)
+        raw_quality = get_data_quality_report(raw_df)
+        
+        print(f"Total Records: {raw_quality['total_records']}")
+        print()
+        
+        if raw_quality.get('missing_data'):
+            print("❌ Missing Data:")
+            for col, info in raw_quality['missing_data'].items():
+                print(f"  {col}: {info['count']} records ({info['percentage']}%)")
+            print()
+        
+        if raw_quality.get('outliers'):
+            print("⚠️  Outliers Detected:")
+            for col, info in raw_quality['outliers'].items():
+                print(f"  {col}: {info['count']} outliers ({info['percentage']}%)")
+                print(f"    Range: {info['min_outlier']:.2f} to {info['max_outlier']:.2f}")
+            print()
+        
+        if raw_quality.get('duplicates'):
+            print("🔄 Duplicates:")
+            for col, count in raw_quality['duplicates'].items():
+                print(f"  {col}: {count} duplicate records")
+            print()
+
+        # Apply data cleansing
+        print("🧹 APPLYING DATA CLEANSING...")
+        print("-" * 50)
+        
+        # Show cleansing options
+        print("Cleansing Configuration:")
+        print("  ✅ Drop rows missing both entry_cap and peak_cap")
+        print("  ✅ Flag outliers (x_gain > 1000x)")
+        print("  ✅ Convert timestamps to timezone-aware datetime")
+        print("  ✅ Normalize token and channel names")
+        print("  ✅ Calculate missing x_gain from caps")
+        print()
+        
+        # Apply cleansing
+        clean_df = cleanse_crypto_calls_data(
+            raw_df,
+            drop_missing_caps=True,
+            handle_outliers=True,
+            outlier_threshold=1000.0,
+            normalize_names=True,
+            convert_timestamps=True
+        )
+        
+        print(f"✅ Cleansing complete: {len(raw_df)} → {len(clean_df)} records")
+        print()
+
+        # Generate data quality report for cleaned data
+        print("📊 CLEANED DATA QUALITY REPORT")
+        print("-" * 50)
+        clean_quality = get_data_quality_report(clean_df)
+        
+        print(f"Total Records: {clean_quality['total_records']}")
+        print()
+        
+        if clean_quality.get('missing_data'):
+            print("❌ Remaining Missing Data:")
+            for col, info in clean_quality['missing_data'].items():
+                print(f"  {col}: {info['count']} records ({info['percentage']}%)")
+            print()
+        else:
+            print("✅ No significant missing data remaining")
+            print()
+        
+        if clean_quality.get('outliers'):
+            print("⚠️  Remaining Outliers:")
+            for col, info in clean_quality['outliers'].items():
+                print(f"  {col}: {info['count']} outliers ({info['percentage']}%)")
+            print()
+        
+        # Show cleansing impact
+        print("📈 CLEANSING IMPACT")
+        print("-" * 50)
+        
+        # Records retained
+        retention_rate = (len(clean_df) / len(raw_df)) * 100
+        print(f"Record Retention: {retention_rate:.1f}% ({len(clean_df)}/{len(raw_df)})")
+        
+        # Missing data improvement
+        raw_missing_x_gain = raw_quality.get('missing_data', {}).get('x_gain', {}).get('count', 0)
+        clean_missing_x_gain = clean_quality.get('missing_data', {}).get('x_gain', {}).get('count', 0)
+        
+        if raw_missing_x_gain > clean_missing_x_gain:
+            recovered = raw_missing_x_gain - clean_missing_x_gain
+            print(f"X-Gain Recovery: {recovered} values calculated from caps")
+        
+        # Show recommendations
+        if clean_quality.get('recommendations'):
+            print()
+            print("💡 RECOMMENDATIONS:")
+            for rec in clean_quality['recommendations']:
+                print(f"  • {rec}")
+        
+        print()
+        
+        # Offer to show sample of cleaned data
+        show_sample = input("Would you like to see a sample of cleaned data? (y/n): ").strip().lower()
+        if show_sample == 'y':
+            print()
+            print("📋 SAMPLE CLEANED DATA")
+            print("-" * 50)
+            
+            # Show first 5 records with key columns
+            sample_cols = ['token_name', 'channel_name', 'message_type', 'entry_cap', 'peak_cap', 'x_gain', 'timestamp']
+            available_cols = [col for col in sample_cols if col in clean_df.columns]
+            
+            sample_df = clean_df[available_cols].head(5)
+            print(sample_df.to_string(index=False))
+            print()
+            
+            # Show outliers if any
+            if 'is_outlier' in clean_df.columns and clean_df['is_outlier'].any():
+                print("⚠️  FLAGGED OUTLIERS:")
+                outlier_df = clean_df[clean_df['is_outlier']][['token_name', 'x_gain', 'channel_name', 'timestamp']].head(3)
+                print(outlier_df.to_string(index=False))
+                print()
+
+        # Save cleaned data option
+        save_cleaned = input("Would you like to save the cleaned dataset to CSV? (y/n): ").strip().lower()
+        if save_cleaned == 'y':
+            from pathlib import Path
+            
+            # Ensure reports directory exists
+            reports_dir = Path("reports")
+            reports_dir.mkdir(exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = reports_dir / f"cleaned_crypto_calls_{timestamp}.csv"
+            clean_df.to_csv(filename, index=False)
+            print(f"💾 Cleaned data saved to: {filename}")
+
+    except Exception as e:
+        print(f"❌ Error during data cleansing analysis: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main() -> None:
     """Main function with comprehensive analysis menu."""
     print("🔍 Crypto Call Database Analyzer")
@@ -691,9 +1001,11 @@ def main() -> None:
         print("3. 📊 Database Statistics & Structure")
         print("4. 🔬 Test Linking Integrity")
         print("5. 🔧 Fix Token Name Inheritance")
-        print("6. 🚪 Exit")
+        print("6. 📈 Run Comprehensive Analytics")
+        print("7. 🧹 Data Cleansing Analysis")
+        print("8. 🚪 Exit")
 
-        choice = input("\nEnter choice (1-6): ").strip()
+        choice = input("\nEnter choice (1-8): ").strip()
 
         if choice == "1":
             view_linked_messages()
@@ -706,12 +1018,16 @@ def main() -> None:
         elif choice == "5":
             fix_token_inheritance()
         elif choice == "6":
+            run_comprehensive_analytics()
+        elif choice == "7":
+            run_data_cleansing_analysis()
+        elif choice == "8":
             print("👋 Analysis complete!")
             break
         else:
             print("❌ Invalid choice")
 
-        if choice in ["1", "2", "3", "4", "5"]:
+        if choice in ["1", "2", "3", "4", "5", "6", "7"]:
             input("\nPress Enter to continue...")
 
 

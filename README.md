@@ -223,6 +223,7 @@ pytest --cov=src
 pfultibot/
 ├── data/                  # Data files, including the database
 ├── logs/                  # Log files
+├── reports/               # Analytics reports and cleaned datasets
 ├── src/                   # Source code
 │   ├── storage/           # Storage backends
 │   ├── __init__.py

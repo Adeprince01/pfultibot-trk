@@ -260,6 +260,14 @@ exports/full_*.xlsx
 exports/complete_*.csv
 exports/backup_*
 
+# Analytics and reports
+reports/
+!reports/README.md
+analytics_report*.json
+cleaned_crypto_calls_*.csv
+*.csv
+*.json.gz
+
 # Development notes and personal files
 for_me.txt
 notes.txt
@@ -330,3 +338,5 @@ personal_*.md
 INTERNAL_NOTES.md
 PRIVATE_*.md
 TODO_PRIVATE.md 
+test_*.py
+!tests/ 
